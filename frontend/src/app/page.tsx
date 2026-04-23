@@ -10,8 +10,8 @@ interface AnalysisResults {
 }
 
 export default function Home() {
-  let API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://daZexxx-drone-traffic-analyzer.hf.space';
-  // Ensure the URL has a protocol to prevent relative path issues
+  let API_URL = (process.env.NEXT_PUBLIC_API_URL || 'https://dazexxx-drone-traffic-analyzer.hf.space').toLowerCase();
+  
   if (API_URL && !API_URL.startsWith('http')) {
     API_URL = `https://${API_URL}`;
   }
@@ -24,6 +24,7 @@ export default function Home() {
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [processingDone, setProcessingDone] = useState<boolean>(false);
   const [results, setResults] = useState<AnalysisResults | null>(null);
+  const [isUploading, setIsUploading] = useState<boolean>(false);
   
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -92,6 +93,7 @@ export default function Home() {
       return;
     }
 
+    setIsUploading(true);
     setUploadStatus('Uploading...');
     const formData = new FormData();
     formData.append('file', file);
@@ -111,7 +113,9 @@ export default function Home() {
       }
     } catch (err) {
       console.error('Upload error:', err);
-      setError('Server connection failed.');
+      setError('Server connection failed. Please check if the backend is running.');
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -216,14 +220,19 @@ export default function Home() {
 
                 <button
                   onClick={handleUpload}
-                  disabled={!file}
-                  className={`w-full py-4 rounded-xl font-black text-lg transition-all transform active:scale-95 ${
-                    file 
+                  disabled={!file || isUploading}
+                  className={`w-full py-4 rounded-xl font-black text-lg transition-all transform active:scale-95 flex items-center justify-center gap-3 ${
+                    file && !isUploading
                       ? 'bg-gradient-to-r from-brand-purple to-brand-red text-white shadow-xl shadow-brand-red/20 hover:opacity-90' 
                       : 'bg-slate-800 text-slate-500 cursor-not-allowed'
                   }`}
                 >
-                  Analyze Video
+                  {isUploading ? (
+                    <>
+                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                      Processing Upload...
+                    </>
+                  ) : 'Analyze Video'}
                 </button>
               </div>
             </div>
