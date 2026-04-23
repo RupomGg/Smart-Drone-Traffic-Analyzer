@@ -1,0 +1,33 @@
+# SMART DRONE TRAFFIC ANALYZER REPORT
+Total Vehicles Counted,27
+Processing Duration (sec),49.43
+Type Breakdown,car: 27
+
+Frame Number,Vehicle ID,Vehicle Type
+60,4,car
+62,10,car
+68,40,car
+79,77,car
+87,20,car
+89,41,car
+99,24,car
+115,67,car
+117,73,car
+132,78,car
+143,81,car
+157,84,car
+158,103,car
+166,109,car
+170,102,car
+188,127,car
+205,140,car
+211,128,car
+211,158,car
+229,161,car
+236,185,car
+256,182,car
+267,206,car
+283,201,car
+284,216,car
+293,221,car
+300,215,car
