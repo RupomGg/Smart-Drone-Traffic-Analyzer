@@ -7,9 +7,6 @@ import csv
 import spaces
 from status_manager import update_status
 
-# Load model once
-model = YOLO("yolov8n.pt")
-
 # Vehicle classes in COCO dataset
 VEHICLE_CLASSES = [2, 3, 5, 7] # car, motorcycle, bus, truck
 
@@ -20,7 +17,8 @@ os.makedirs(REPORT_DIR, exist_ok=True)
 
 @spaces.GPU(duration=120)
 def run_cv_pipeline(video_path: str):
-    # Ensure model is on GPU for Hugging Face ZeroGPU
+    # Load model inside the GPU context for Hugging Face ZeroGPU
+    model = YOLO("yolov8n.pt")
     model.to('cuda')
     
     start_time = time.time()
