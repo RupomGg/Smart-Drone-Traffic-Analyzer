@@ -47,15 +47,10 @@ def _run_cv_pipeline_impl(video_path: str):
         return
 
     # Get video properties
-    width_orig  = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-    height_orig = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    width  = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     fps         = cap.get(cv2.CAP_PROP_FPS)
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-    
-    # Optimization: Resize to standard 640px width for faster processing
-    # but maintain aspect ratio for output video
-    width = 640
-    height = int((width / width_orig) * height_orig)
     
     # Define counting line (horizontal line at 70% of frame height)
     line_y = int(height * 0.7)
@@ -83,11 +78,9 @@ def _run_cv_pipeline_impl(video_path: str):
 
         frame_count += 1
         
-        # Optimization: Resize frame for faster inference and smaller output
-        frame = cv2.resize(frame, (width, height))
-        
-        # Run tracking
-        results = model.track(frame, persist=True, tracker="bytetrack.yaml", verbose=False)
+        # Run tracking with imgsz=640 for speed optimization
+        # YOLO handles internal scaling while returning coordinates in original frame space
+        results = model.track(frame, persist=True, tracker="bytetrack.yaml", verbose=False, imgsz=640)
         
         # Draw counting line
         cv2.line(frame, (0, line_y), (width, line_y), (0, 0, 255), 3)
@@ -170,7 +163,7 @@ def _run_cv_pipeline_impl(video_path: str):
                 "-i", output_path,
                 "-c:v", "libx264",
                 "-preset", "fast",
-                "-crf", "23",
+                "-crf", "20",  # Improved quality (lower CRF)
                 "-movflags", "+faststart",
                 h264_output_path
             ],

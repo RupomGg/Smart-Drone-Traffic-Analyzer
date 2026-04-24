@@ -305,6 +305,8 @@ export default function Home() {
                   <video 
                     controls 
                     autoPlay
+                    muted
+                    playsInline
                     className="w-full aspect-video"
                     src={`${API_URL}/video/${videoId}`}
                   >
