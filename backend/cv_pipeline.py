@@ -21,7 +21,7 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 print(f"--- [CV Pipeline] Running on device: {DEVICE} ---")
 
 # Vehicle classes in COCO dataset
-VEHICLE_CLASSES = [2, 3, 5, 7] # car, motorcycle, bus, truck
+VEHICLE_CLASSES = [2, 3, 5, 6, 7] # car, motorcycle, bus, train, truck
 
 OUTPUT_DIR = "output_videos"
 REPORT_DIR = "reports"

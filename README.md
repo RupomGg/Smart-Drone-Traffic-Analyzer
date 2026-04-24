@@ -97,6 +97,7 @@ To calculate traffic volume:
 ## 📝 Assumptions & Constraints
 - **Camera Stability**: The system assumes the drone camera remains relatively stationary or stabilized. A static counting line relies on a fixed frame of reference.
 - **Video Format**: Currently strictly optimized for `.mp4` files to ensure browser compatibility.
+- **Model Limitations (Top-Down View)**: Standard YOLOv8 is trained on the COCO dataset (mostly eye-level). In drone footage, long rectangular objects like **trains** can occasionally be misclassified as **buses**. In a production environment, this would be solved by fine-tuning the model on an aerial-specific dataset (like VisDrone).
 - **Environment**: Performance varies based on CPU/GPU availability; the system uses `yolov8n` (nano) by default for compatibility with standard hardware.
 
 ---
