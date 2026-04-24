@@ -57,7 +57,7 @@ def _run_cv_pipeline_impl(video_path: str):
     # Initialize VideoWriter
     video_id = os.path.basename(video_path)
     output_path = os.path.join(OUTPUT_DIR, f"processed_{video_id}")
-    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # temporary; re-encoded to H.264 after processing
     out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
 
     counted_ids = set()
@@ -136,7 +136,39 @@ def _run_cv_pipeline_impl(video_path: str):
 
     cap.release()
     out.release()
-    
+
+    # -----------------------------------------------------------------
+    # Re-encode to H.264 so browsers can play it in the <video> tag.
+    # mp4v (MPEG-4 Part 2) written by OpenCV is NOT browser-compatible.
+    # ffmpeg is available on Hugging Face Spaces (Ubuntu) and most Linux
+    # systems. On Windows local dev you can install it via winget/choco.
+    # -----------------------------------------------------------------
+    h264_output_path = output_path.replace(".mp4", "_h264.mp4")
+    try:
+        import subprocess
+        result = subprocess.run(
+            [
+                "ffmpeg", "-y",
+                "-i", output_path,
+                "-c:v", "libx264",
+                "-preset", "fast",
+                "-crf", "23",
+                "-movflags", "+faststart",   # moov atom at front for streaming
+                h264_output_path
+            ],
+            capture_output=True, text=True, timeout=300
+        )
+        if result.returncode == 0:
+            os.replace(h264_output_path, output_path)  # overwrite mp4v file
+            print(f"--- [CV Pipeline] Re-encoded to H.264: {output_path} ---")
+        else:
+            print(f"--- [CV Pipeline] ffmpeg re-encode failed (non-fatal): {result.stderr[-300:]} ---")
+            # Keep the mp4v file as fallback
+    except FileNotFoundError:
+        print("--- [CV Pipeline] ffmpeg not found — video may not play in browser. ---")
+    except Exception as e:
+        print(f"--- [CV Pipeline] ffmpeg error (non-fatal): {e} ---")
+
     end_time = time.time()
     duration = round(end_time - start_time, 2)
 

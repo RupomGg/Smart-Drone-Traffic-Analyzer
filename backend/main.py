@@ -1,5 +1,5 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException, BackgroundTasks
-from fastapi.responses import FileResponse
+from fastapi import FastAPI, UploadFile, File, HTTPException, BackgroundTasks, Request
+from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 import os
 import re
@@ -63,12 +63,57 @@ async def get_report(video_id: str):
         raise HTTPException(status_code=404, detail="Report not found.")
 
 @app.get("/video/{video_id}")
-async def get_processed_video(video_id: str):
+async def get_processed_video(video_id: str, request: Request):
     video_path = os.path.join("output_videos", f"processed_{video_id}")
-    if os.path.exists(video_path):
-        return FileResponse(video_path, media_type="video/mp4")
-    else:
+    if not os.path.exists(video_path):
         raise HTTPException(status_code=404, detail="Processed video not found.")
+
+    file_size = os.path.getsize(video_path)
+    range_header = request.headers.get("range")
+
+    def iter_file(path: str, start: int, end: int, chunk: int = 1024 * 256):
+        with open(path, "rb") as f:
+            f.seek(start)
+            remaining = end - start + 1
+            while remaining > 0:
+                data = f.read(min(chunk, remaining))
+                if not data:
+                    break
+                remaining -= len(data)
+                yield data
+
+    if range_header:
+        # Parse Range: bytes=start-end
+        range_val = range_header.strip().replace("bytes=", "")
+        range_start, _, range_end = range_val.partition("-")
+        start = int(range_start)
+        end = int(range_end) if range_end else file_size - 1
+        end = min(end, file_size - 1)
+        content_length = end - start + 1
+        headers = {
+            "Content-Range": f"bytes {start}-{end}/{file_size}",
+            "Accept-Ranges": "bytes",
+            "Content-Length": str(content_length),
+            "Content-Type": "video/mp4",
+        }
+        return StreamingResponse(
+            iter_file(video_path, start, end),
+            status_code=206,
+            headers=headers,
+            media_type="video/mp4",
+        )
+
+    headers = {
+        "Accept-Ranges": "bytes",
+        "Content-Length": str(file_size),
+        "Content-Type": "video/mp4",
+    }
+    return StreamingResponse(
+        iter_file(video_path, 0, file_size - 1),
+        status_code=200,
+        headers=headers,
+        media_type="video/mp4",
+    )
 
 @app.post("/upload")
 async def upload_video(background_tasks: BackgroundTasks, file: UploadFile = File(...)):
