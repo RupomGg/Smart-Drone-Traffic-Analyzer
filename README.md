@@ -71,15 +71,16 @@ The frontend will be available at `http://localhost:3000`.
 We utilize **YOLOv8 (yolov8n.pt)** for fast and accurate vehicle detection (cars, trucks, buses, motorcycles). To solve the "memory" problem where a vehicle might be lost behind a tree or sign, we integrate **ByteTrack**. This assigns a unique `track_id` to every object that persists across frames.
 
 ### Performance Optimizations
-- **Inference Scaling**: Inference is performed at **800px** with a **0.20 confidence threshold**. This configuration is tuned to balance processing speed with the ability to detect smaller, distant vehicles that appear as small pixel clusters in aerial footage.
+- **Advanced Model**: Upgraded to **YOLOv8s** (Small) to improve detection recall for difficult objects like trains and high-altitude vehicles.
+- **Inference Scaling**: Inference is performed at **960px** with a **0.15 confidence threshold**. This aggressive configuration ensures the system can "see" vehicles in the far distance that are only a few pixels wide.
 - **Asynchronous Re-encoding**: The system processes video in `mp4v` for speed, then performs a high-efficiency **H.264 pass with ffmpeg** using `+faststart` to ensure the final output is streamable in all modern browsers.
 
-### The Virtual Counting Line
-To calculate traffic volume:
-1.  A virtual horizontal line is drawn at 70% of the frame height.
-2.  The system calculates the center point of every tracked bounding box.
-3.  A "Crossing Event" is triggered only when a vehicle's center moves from above the line to below the line.
-4.  Once a `track_id` triggers a crossing, it is added to a `counted_ids` set to prevent it from being counted again in subsequent frames. This effectively handles edge cases like vehicles stopping or reversing near the line.
+### The Dual-Line Crosshair Logic
+To ensure 100% accurate counting across all traffic flows (Inbound, Outbound, and Cross-Traffic):
+1.  **Horizontal Main Line (70% Height)**: Monitors vertical traffic flow (Up/Down).
+2.  **Vertical Side Line (50% Width)**: Monitors horizontal traffic flow (Left/Right).
+3.  **Bi-directional Tracking**: The algorithm detects line-crossing events in **both directions** for both lines.
+4.  **Deduplication**: Uses a unique `track_id` registry to ensure a vehicle crossing multiple lines is only counted once for the entire session. This robustly handles vehicles turning at intersections or passing through corners of the frame.
 
 ## 🏗️ Project Structure
 ```

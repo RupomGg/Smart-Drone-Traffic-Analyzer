@@ -20,7 +20,7 @@ except ImportError:
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 class TrafficAnalyzer:
-    def __init__(self, model_path="yolov8n.pt"):
+    def __init__(self, model_path="yolov8s.pt"): # Upgraded to Small for better accuracy
         self.model = YOLO(model_path)
         self.model.to(DEVICE)
         self.vehicle_classes = [2, 3, 5, 6, 7] # car, motorcycle, bus, train, truck
@@ -84,32 +84,39 @@ class TrafficAnalyzer:
             return print(f"--- [Error] Could not open {video_path} ---")
 
         props = self._get_video_props(cap)
-        line_y = int(props['height'] * 0.7)
+        # Dual-Line Setup: Horizontal (70% height) and Vertical (50% width)
+        line_h_y = int(props['height'] * 0.7)
+        line_v_x = int(props['width'] * 0.5)
         
         output_path = os.path.join(self.output_dir, f"processed_{video_id}")
         out = cv2.VideoWriter(output_path, cv2.VideoWriter_fourcc(*'mp4v'), props['fps'], (props['width'], props['height']))
 
         # Tracking State
         counted_ids = set()
-        prev_y_positions = {}
+        prev_positions = {} # {id: (cx, cy)}
         type_breakdown = {}
         tracking_data = [] # [frame, timestamp, id, type]
         start_time = time.time()
         frame_count = 0
 
-        print(f"--- [TrafficAnalyzer] Starting Analysis: {video_id} ---")
+        print(f"--- [TrafficAnalyzer] Starting High-Precision Analysis: {video_id} ---")
 
         while cap.isOpened():
             success, frame = cap.read()
             if not success: break
             frame_count += 1
 
-            # 1. Inference (imgsz=800 for better distant detection)
-            results = self.model.track(frame, persist=True, tracker="bytetrack.yaml", verbose=False, imgsz=800, conf=0.20)
+            # 1. Inference (imgsz=960 for distant objects, lower conf=0.15)
+            results = self.model.track(frame, persist=True, tracker="bytetrack.yaml", verbose=False, imgsz=960, conf=0.15)
             
             # 2. Logic & Visualization
-            cv2.line(frame, (0, line_y), (props['width'], line_y), (0, 0, 255), 3)
-            cv2.putText(frame, "Counting Line", (10, line_y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
+            # Draw Horizontal Line
+            cv2.line(frame, (0, line_h_y), (props['width'], line_h_y), (0, 0, 255), 2)
+            cv2.putText(frame, "Main Flow Line", (10, line_h_y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1)
+            
+            # Draw Vertical Line
+            cv2.line(frame, (line_v_x, 0), (line_v_x, props['height']), (255, 0, 0), 2)
+            cv2.putText(frame, "Side Flow Line", (line_v_x + 10, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 1)
 
             if results[0].boxes.id is not None:
                 boxes = results[0].boxes.xyxy.cpu().numpy()
@@ -120,18 +127,26 @@ class TrafficAnalyzer:
                     if cls not in self.vehicle_classes: continue
                     
                     x1, y1, x2, y2 = box
-                    cy = int((y1 + y2) / 2)
+                    cx, cy = int((x1 + x2) / 2), int((y1 + y2) / 2)
                     label = self.model.names[cls]
                     
-                    # Tripwire Logic
-                    prev_y = prev_y_positions.get(track_id)
-                    if prev_y is not None and prev_y <= line_y and cy > line_y:
-                        if track_id not in counted_ids:
+                    # Bi-directional Tripwire Logic
+                    prev_pos = prev_positions.get(track_id)
+                    if prev_pos is not None:
+                        prev_cx, prev_cy = prev_pos
+                        
+                        # A. Check Horizontal Line Crossing (Bi-directional)
+                        crossed_h = (prev_cy <= line_h_y and cy > line_h_y) or (prev_cy >= line_h_y and cy < line_h_y)
+                        
+                        # B. Check Vertical Line Crossing (Bi-directional)
+                        crossed_v = (prev_cx <= line_v_x and cx > line_v_x) or (prev_cx >= line_v_x and cx < line_v_x)
+
+                        if (crossed_h or crossed_v) and track_id not in counted_ids:
                             counted_ids.add(track_id)
                             type_breakdown[label] = type_breakdown.get(label, 0) + 1
                             tracking_data.append([frame_count, round(frame_count/props['fps'], 2), track_id, label])
 
-                    prev_y_positions[track_id] = cy
+                    prev_positions[track_id] = (cx, cy)
 
                     # Drawing
                     color = (222, 59, 54) if track_id in counted_ids else (0, 255, 0)
