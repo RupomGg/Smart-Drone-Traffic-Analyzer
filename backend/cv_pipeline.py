@@ -11,7 +11,7 @@ from status_manager import update_status
 # Optional Hugging Face ZeroGPU support
 # ---------------------------------------------------------------------------
 try:
-    import spaces
+    import spaces  # type: ignore  # only available inside HF Spaces
     HF_SPACES = True
 except ImportError:
     HF_SPACES = False
