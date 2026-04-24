@@ -20,7 +20,7 @@ except ImportError:
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 class TrafficAnalyzer:
-    def __init__(self, model_path="yolov8s.pt"): # Upgraded to Small for better accuracy
+    def __init__(self, model_path="yolov8m.pt"): # Upgraded to Medium for much better class distinction
         self.model = YOLO(model_path)
         self.model.to(DEVICE)
         self.vehicle_classes = [2, 3, 5, 6, 7] # car, motorcycle, bus, train, truck
@@ -130,23 +130,30 @@ class TrafficAnalyzer:
                     cx, cy = int((x1 + x2) / 2), int((y1 + y2) / 2)
                     label = self.model.names[cls]
                     
-                    # Bi-directional Tripwire Logic
+                    # Robust Tripwire Logic: Check if the bounding box intersects the line
+                    # This is better for large vehicles (trains/trucks) than just the center point
                     prev_pos = prev_positions.get(track_id)
                     if prev_pos is not None:
-                        prev_cx, prev_cy = prev_pos
+                        prev_cx, prev_cy, prev_x1, prev_y1, prev_x2, prev_y2 = prev_pos
                         
-                        # A. Check Horizontal Line Crossing (Bi-directional)
-                        crossed_h = (prev_cy <= line_h_y and cy > line_h_y) or (prev_cy >= line_h_y and cy < line_h_y)
+                        # A. Check Horizontal Line Crossing (Top or Bottom edge)
+                        crossed_h = (prev_y1 <= line_h_y and y1 > line_h_y) or \
+                                    (prev_y2 <= line_h_y and y2 > line_h_y) or \
+                                    (prev_y1 >= line_h_y and y1 < line_h_y) or \
+                                    (prev_y2 >= line_h_y and y2 < line_h_y)
                         
-                        # B. Check Vertical Line Crossing (Bi-directional)
-                        crossed_v = (prev_cx <= line_v_x and cx > line_v_x) or (prev_cx >= line_v_x and cx < line_v_x)
+                        # B. Check Vertical Line Crossing (Left or Right edge)
+                        crossed_v = (prev_x1 <= line_v_x and x1 > line_v_x) or \
+                                    (prev_x2 <= line_v_x and x2 > line_v_x) or \
+                                    (prev_cx <= line_v_x and cx > line_v_x) or \
+                                    (prev_cx >= line_v_x and cx < line_v_x)
 
                         if (crossed_h or crossed_v) and track_id not in counted_ids:
                             counted_ids.add(track_id)
                             type_breakdown[label] = type_breakdown.get(label, 0) + 1
                             tracking_data.append([frame_count, round(frame_count/props['fps'], 2), track_id, label])
 
-                    prev_positions[track_id] = (cx, cy)
+                    prev_positions[track_id] = (cx, cy, x1, y1, x2, y2)
 
                     # Drawing
                     color = (222, 59, 54) if track_id in counted_ids else (0, 255, 0)
