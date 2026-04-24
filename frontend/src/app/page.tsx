@@ -1,12 +1,19 @@
 'use client';
 
-import { useEffect, useState, ChangeEvent, useRef } from 'react';
+import { useEffect, useState, ChangeEvent, useRef, useMemo } from 'react';
+import { 
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area 
+} from 'recharts';
+import { 
+  Filter, Activity, BarChart3, Clock, Car, Info, ChevronDown, Download, RefreshCcw, 
+  Play, CheckCircle2, AlertCircle, FileVideo
+} from 'lucide-react';
 
 interface AnalysisResults {
   total_count: number;
   type_breakdown: Record<string, number>;
   duration: number;
-  recent_detections: [number, number, string][];
+  full_tracking_history: [number, number, number, string][];
 }
 
 interface StatusInfo {
@@ -32,8 +39,39 @@ export default function Home() {
   const [processingDone, setProcessingDone] = useState<boolean>(false);
   const [results, setResults] = useState<AnalysisResults | null>(null);
   const [isUploading, setIsUploading] = useState<boolean>(false);
+  const [filterType, setFilterType] = useState<string>('all');
   
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Memoized filtered results
+  const filteredHistory = useMemo(() => {
+    if (!results) return [];
+    if (filterType === 'all') return results.full_tracking_history;
+    return results.full_tracking_history.filter(det => det[3] === filterType);
+  }, [results, filterType]);
+
+  // Group data for the chart (Vehicles per 2 second interval)
+  const chartData = useMemo(() => {
+    if (!results) return [];
+    const interval = 2; // seconds
+    const buckets: Record<number, number> = {};
+    
+    // Initialize buckets
+    for (let i = 0; i <= results.duration; i += interval) {
+      buckets[i] = 0;
+    }
+
+    filteredHistory.forEach(det => {
+      const time = det[1];
+      const bucket = Math.floor(time / interval) * interval;
+      buckets[bucket] = (buckets[bucket] || 0) + 1;
+    });
+
+    return Object.entries(buckets).map(([time, count]) => ({
+      time: `${time}s`,
+      count
+    })).sort((a, b) => parseInt(a.time) - parseInt(b.time));
+  }, [results, filteredHistory]);
 
   useEffect(() => {
     const checkHealth = async () => {
@@ -137,10 +175,8 @@ export default function Home() {
       <nav className="border-b border-slate-800 bg-dark-bg/80 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-brand-purple via-brand-crimson to-brand-red flex items-center justify-center shadow-lg shadow-brand-crimson/20">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" viewBox="0 0 20 20" fill="currentColor">
-                <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" />
-              </svg>
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-purple via-brand-crimson to-brand-red flex items-center justify-center shadow-lg shadow-brand-crimson/20">
+              <Car className="h-6 w-6 text-white" />
             </div>
             <h1 className="text-xl font-bold tracking-tight text-gradient">
               Smart Drone Traffic Analyzer
@@ -276,24 +312,26 @@ export default function Home() {
           <div className="space-y-10 animate-in slide-in-from-bottom-10 duration-1000">
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
               <div className="space-y-2">
-                <span className="text-xs font-black uppercase tracking-widest text-brand-red">Analysis Success</span>
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-brand-red" />
+                  <span className="text-xs font-black uppercase tracking-widest text-brand-red">Analysis Success</span>
+                </div>
                 <h2 className="text-4xl font-black text-white">Processed Results</h2>
               </div>
               <div className="flex gap-4">
                 <a 
                   href={`${API_URL}/report/${videoId}`}
                   download
-                  className="px-6 py-3 bg-gradient-to-r from-brand-purple to-brand-crimson text-white rounded-xl font-bold transition-all flex items-center gap-2 shadow-lg shadow-brand-purple/20 hover:opacity-90"
+                  className="px-6 py-3 bg-gradient-to-r from-brand-purple to-brand-crimson text-white rounded-xl font-bold transition-all flex items-center gap-2 shadow-lg shadow-brand-purple/20 hover:opacity-90 active:scale-95"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
-                  </svg>
+                  <Download className="h-5 w-5" />
                   Download Report
                 </a>
                 <button 
-                  onClick={() => { setProcessingDone(false); setVideoId(null); setFile(null); setResults(null); }}
-                  className="px-6 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-bold transition-all flex items-center gap-2"
+                  onClick={() => { setProcessingDone(false); setVideoId(null); setFile(null); setResults(null); setProgress(0); setFilterType('all'); }}
+                  className="px-6 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-bold transition-all flex items-center gap-2 active:scale-95"
                 >
+                  <RefreshCcw className="h-5 w-5" />
                   New Analysis
                 </button>
               </div>
@@ -315,35 +353,110 @@ export default function Home() {
                 </div>
 
                 <div className="bg-card-bg rounded-3xl border border-slate-800 p-8 space-y-6">
-                  <h3 className="text-xl font-bold text-white flex items-center gap-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-brand-red" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
-                    </svg>
-                    Recent Detections
-                  </h3>
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                      <Activity className="h-6 w-6 text-brand-red" />
+                      Traffic Intensity Over Time
+                    </h3>
+                    <div className="text-xs text-slate-500 font-medium bg-slate-900 px-3 py-1 rounded-full border border-slate-800">
+                      Bucket: 2s
+                    </div>
+                  </div>
+                  
+                  <div className="h-[250px] w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={chartData}>
+                        <defs>
+                          <linearGradient id="colorCount" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#de3b36" stopOpacity={0.3}/>
+                            <stop offset="95%" stopColor="#de3b36" stopOpacity={0}/>
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
+                        <XAxis 
+                          dataKey="time" 
+                          stroke="#64748b" 
+                          fontSize={12} 
+                          tickLine={false} 
+                          axisLine={false}
+                        />
+                        <YAxis 
+                          stroke="#64748b" 
+                          fontSize={12} 
+                          tickLine={false} 
+                          axisLine={false}
+                          allowDecimals={false}
+                        />
+                        <Tooltip 
+                          contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px' }}
+                          itemStyle={{ color: '#f8fafc' }}
+                        />
+                        <Area 
+                          type="monotone" 
+                          dataKey="count" 
+                          stroke="#de3b36" 
+                          strokeWidth={3}
+                          fillOpacity={1} 
+                          fill="url(#colorCount)" 
+                          animationDuration={1500}
+                        />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+
+                <div className="bg-card-bg rounded-3xl border border-slate-800 p-8 space-y-6">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                      <Filter className="h-6 w-6 text-brand-red" />
+                      Event History
+                    </h3>
+                    
+                    <div className="flex flex-wrap gap-2">
+                      {['all', ...Object.keys(results.type_breakdown)].map(type => (
+                        <button
+                          key={type}
+                          onClick={() => setFilterType(type)}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all capitalize ${
+                            filterType === type 
+                              ? 'bg-brand-red text-white shadow-lg shadow-brand-red/20' 
+                              : 'bg-slate-900 text-slate-500 hover:text-slate-300 border border-slate-800'
+                          }`}
+                        >
+                          {type}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  
                   <div className="overflow-x-auto">
                     <table className="w-full text-left">
                       <thead>
                         <tr className="border-b border-slate-800 text-slate-500 text-xs font-black uppercase tracking-widest">
-                          <th className="pb-4 px-2">Frame</th>
+                          <th className="pb-4 px-2">Time</th>
                           <th className="pb-4 px-2">Vehicle ID</th>
                           <th className="pb-4 px-2">Type</th>
                         </tr>
                       </thead>
                       <tbody className="text-sm">
-                        {results.recent_detections.map((det, idx) => (
-                          <tr key={idx} className="border-b border-slate-800/50 hover:bg-slate-900/50 transition-colors">
-                            <td className="py-4 px-2 text-slate-400">#{det[0]}</td>
-                            <td className="py-4 px-2 font-mono text-blue-400">ID-{det[1]}</td>
+                        {filteredHistory.slice().reverse().slice(0, 15).map((det, idx) => (
+                          <tr key={idx} className="border-b border-slate-800/50 hover:bg-slate-900/50 transition-colors animate-in fade-in slide-in-from-left-2 duration-300" style={{ animationDelay: `${idx * 50}ms` }}>
+                            <td className="py-4 px-2 text-slate-400 font-mono">{det[1]}s</td>
+                            <td className="py-4 px-2 font-mono text-blue-400">ID-{det[2]}</td>
                             <td className="py-4 px-2">
                               <span className="px-2 py-1 bg-slate-800 rounded text-xs font-bold text-slate-300 capitalize">
-                                {det[2]}
+                                {det[3]}
                               </span>
                             </td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
+                    {filteredHistory.length === 0 && (
+                      <div className="py-12 text-center text-slate-500 text-sm">
+                        No events found for the selected filter.
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -351,16 +464,24 @@ export default function Home() {
               <div className="space-y-6">
                 <div className="p-6 bg-card-bg rounded-2xl border border-slate-800 space-y-4">
                   <div className="space-y-1">
-                    <p className="text-xs text-slate-500 uppercase tracking-wider font-bold">Total Vehicle Count</p>
-                    <p className="text-5xl font-black text-white">{results.total_count}</p>
+                    <p className="text-xs text-slate-500 uppercase tracking-wider font-bold">
+                      {filterType === 'all' ? 'Total Vehicles' : `${filterType}s`} Count
+                    </p>
+                    <p className="text-5xl font-black text-white">{filteredHistory.length}</p>
                   </div>
                   <div className="h-2 w-full bg-slate-900 rounded-full overflow-hidden">
-                    <div className="h-full bg-brand-red w-full"></div>
+                    <div 
+                      className="h-full bg-brand-red transition-all duration-1000" 
+                      style={{ width: `${(filteredHistory.length / results.total_count) * 100}%` }}
+                    ></div>
                   </div>
                 </div>
                 
                 <div className="p-6 bg-card-bg rounded-2xl border border-slate-800 space-y-4">
-                  <p className="text-xs text-slate-500 uppercase tracking-wider font-bold">Breakdown by Type</p>
+                  <p className="text-xs text-slate-500 uppercase tracking-wider font-bold flex items-center gap-2">
+                    <BarChart3 className="h-4 w-4" />
+                    Overall Breakdown
+                  </p>
                   <div className="space-y-3">
                     {Object.entries(results.type_breakdown).map(([type, count]) => (
                       <div key={type} className="flex items-center justify-between">
@@ -382,9 +503,7 @@ export default function Home() {
                 <div className="p-6 bg-card-bg rounded-2xl border border-slate-800 space-y-1">
                   <p className="text-xs text-slate-500 uppercase tracking-wider font-bold">Processing Duration</p>
                   <div className="flex items-center gap-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
+                    <Clock className="h-5 w-5 text-blue-400" />
                     <p className="text-xl font-bold text-white">{results.duration} seconds</p>
                   </div>
                 </div>
