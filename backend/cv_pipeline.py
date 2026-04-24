@@ -4,8 +4,21 @@ import os
 import asyncio
 import time
 import csv
-import spaces
+import torch
 from status_manager import update_status
+
+# ---------------------------------------------------------------------------
+# Optional Hugging Face ZeroGPU support
+# ---------------------------------------------------------------------------
+try:
+    import spaces
+    HF_SPACES = True
+except ImportError:
+    HF_SPACES = False
+
+# Detect the best available device once at startup
+DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+print(f"--- [CV Pipeline] Running on device: {DEVICE} ---")
 
 # Vehicle classes in COCO dataset
 VEHICLE_CLASSES = [2, 3, 5, 7] # car, motorcycle, bus, truck
@@ -15,11 +28,11 @@ REPORT_DIR = "reports"
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 os.makedirs(REPORT_DIR, exist_ok=True)
 
-@spaces.GPU(duration=120)
-def run_cv_pipeline(video_path: str):
-    # Load model inside the GPU context for Hugging Face ZeroGPU
+def _run_cv_pipeline_impl(video_path: str):
+    # Load model and move to the best available device
     model = YOLO("yolov8n.pt")
-    model.to('cuda')
+    model.to(DEVICE)
+    print(f"--- [CV Pipeline] Model loaded on {DEVICE}. ---")
     
     start_time = time.time()
     print(f"--- [CV Pipeline] Starting tracking for: {video_path} ---")
@@ -159,3 +172,17 @@ def run_cv_pipeline(video_path: str):
     update_status(video_id, "completed", results_data)
     
     print(f"--- [CV Pipeline] Finished. Report saved: {report_path} ---")
+
+
+# ---------------------------------------------------------------------------
+# Public entry point — wrap with @spaces.GPU only on Hugging Face
+# ---------------------------------------------------------------------------
+if HF_SPACES:
+    @spaces.GPU(duration=120)
+    def run_cv_pipeline(video_path: str):
+        """GPU-accelerated entry point for Hugging Face ZeroGPU spaces."""
+        _run_cv_pipeline_impl(video_path)
+else:
+    def run_cv_pipeline(video_path: str):
+        """CPU entry point for local / non-HF environments."""
+        _run_cv_pipeline_impl(video_path)
