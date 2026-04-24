@@ -36,9 +36,12 @@ The project follows a decoupled architecture for maximum scalability:
 ## 🚦 Setup Instructions
 
 ### Prerequisites
-- Python 3.9+
-- Node.js 18+
-- npm or yarn
+- **Python 3.9+**
+- **Node.js 18+**
+- **FFmpeg**: Required for video re-encoding (H.264).
+    *   *Windows*: `winget install ffmpeg`
+    *   *Linux*: `sudo apt install ffmpeg`
+    *   *macOS*: `brew install ffmpeg`
 
 ### 1. Backend Setup
 ```bash
@@ -67,12 +70,29 @@ The frontend will be available at `http://localhost:3000`.
 ### Object Detection & Persistence
 We utilize **YOLOv8 (yolov8n.pt)** for fast and accurate vehicle detection (cars, trucks, buses, motorcycles). To solve the "memory" problem where a vehicle might be lost behind a tree or sign, we integrate **ByteTrack**. This assigns a unique `track_id` to every object that persists across frames.
 
+### Performance Optimizations
+- **Frame Resizing**: All incoming frames are resized to **640px width** (maintaining aspect ratio) before inference. This ensures high-speed processing (up to 3x faster) without sacrificing detection accuracy for the YOLO model.
+- **Asynchronous Re-encoding**: The system processes video in `mp4v` for speed, then performs a high-efficiency **H.264 pass with ffmpeg** using `+faststart` to ensure the final output is streamable in all modern browsers.
+
 ### The Virtual Counting Line
 To calculate traffic volume:
 1.  A virtual horizontal line is drawn at 70% of the frame height.
 2.  The system calculates the center point of every tracked bounding box.
 3.  A "Crossing Event" is triggered only when a vehicle's center moves from above the line to below the line.
-4.  Once a `track_id` triggers a crossing, it is added to a `counted_ids` set to prevent it from being counted again in subsequent frames.
+4.  Once a `track_id` triggers a crossing, it is added to a `counted_ids` set to prevent it from being counted again in subsequent frames. This effectively handles edge cases like vehicles stopping or reversing near the line.
+
+## 🏗️ Project Structure
+```
+├── backend/
+│   ├── cv_pipeline.py    # Core YOLO + ByteTrack logic
+│   ├── main.py           # FastAPI endpoints & streaming
+│   ├── status_manager.py # Thread-safe progress tracking
+│   └── requirements.txt
+├── frontend/
+│   ├── src/app/page.tsx  # Main Next.js dashboard
+│   └── ...
+└── packages.txt          # System dependencies for HF Spaces
+```
 
 ## 📝 Assumptions & Constraints
 - **Camera Stability**: The system assumes the drone camera remains relatively stationary or stabilized. A static counting line relies on a fixed frame of reference.

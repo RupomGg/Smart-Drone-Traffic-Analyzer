@@ -9,6 +9,12 @@ interface AnalysisResults {
   recent_detections: [number, number, string][];
 }
 
+interface StatusInfo {
+  status: string;
+  progress: number;
+  results: AnalysisResults | null;
+}
+
 export default function Home() {
   let API_URL = (process.env.NEXT_PUBLIC_API_URL || 'https://dazexxx-drone-traffic-analyzer.hf.space').toLowerCase();
   
@@ -17,6 +23,7 @@ export default function Home() {
   }
   
   const [status, setStatus] = useState<string>('Connecting to API...');
+  const [progress, setProgress] = useState<number>(0);
   const [uploadStatus, setUploadStatus] = useState<string>('');
   const [error, setError] = useState<string>('');
   const [file, setFile] = useState<File | null>(null);
@@ -73,12 +80,17 @@ export default function Home() {
     pollingRef.current = setInterval(async () => {
       try {
         const response = await fetch(`${API_URL}/status/${vId}`);
-        const data = await response.json();
+        const data: StatusInfo = await response.json();
         
-        if (data.status === 'completed') {
+        if (data.status === 'processing') {
+          setProgress(data.progress);
+        }
+
+        if (data.status === 'completed' && data.results) {
           if (pollingRef.current) clearInterval(pollingRef.current);
           setIsProcessing(false);
           setResults(data.results);
+          setProgress(100);
           setProcessingDone(true);
         }
       } catch (err) {
@@ -248,11 +260,14 @@ export default function Home() {
               </div>
             </div>
             <div className="space-y-4 text-center">
-              <h2 className="text-3xl font-black text-white">AI Engine Processing</h2>
+              <h2 className="text-3xl font-black text-white">AI Engine Processing: {progress}%</h2>
               <p className="text-slate-400 max-w-sm">Detections are being calculated. Our ByteTrack algorithm is establishing object persistence across frames.</p>
             </div>
             <div className="w-full max-w-md bg-slate-900 h-3 rounded-full overflow-hidden border border-slate-800">
-              <div className="bg-gradient-to-r from-brand-purple via-brand-crimson to-brand-red h-full animate-progress-indeterminate"></div>
+              <div 
+                className="bg-gradient-to-r from-brand-purple via-brand-crimson to-brand-red h-full transition-all duration-500 ease-out"
+                style={{ width: `${progress}%` }}
+              ></div>
             </div>
           </div>
         )}

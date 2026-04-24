@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import os
 import re
 import shutil
-from status_manager import update_status, get_status, get_results
+from status_manager import update_status, get_status_info
 
 app = FastAPI(title="Smart Drone Traffic Analyzer API")
 
@@ -50,9 +50,7 @@ async def health_check():
 
 @app.get("/status/{video_id}")
 async def check_status(video_id: str):
-    status = get_status(video_id)
-    results = get_results(video_id) if status == "completed" else None
-    return {"status": status, "results": results}
+    return get_status_info(video_id)
 
 @app.get("/report/{video_id}")
 async def get_report(video_id: str):

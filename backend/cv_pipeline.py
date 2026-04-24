@@ -46,10 +46,16 @@ def _run_cv_pipeline_impl(video_path: str):
         print(f"--- [CV Pipeline] ERROR: Could not open video: {video_path} ---")
         return
 
-    # Get video properties for writer
-    width  = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-    fps    = cap.get(cv2.CAP_PROP_FPS)
+    # Get video properties
+    width_orig  = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    height_orig = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    fps         = cap.get(cv2.CAP_PROP_FPS)
+    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    
+    # Optimization: Resize to standard 640px width for faster processing
+    # but maintain aspect ratio for output video
+    width = 640
+    height = int((width / width_orig) * height_orig)
     
     # Define counting line (horizontal line at 70% of frame height)
     line_y = int(height * 0.7)
@@ -65,7 +71,7 @@ def _run_cv_pipeline_impl(video_path: str):
     type_breakdown = {}
     
     # Detailed data for CSV
-    tracking_data = [] # List of [Frame, ID, Type]
+    tracking_data = [] # List of [Frame, Timestamp, ID, Type]
     
     prev_y_positions = {}
 
@@ -76,6 +82,9 @@ def _run_cv_pipeline_impl(video_path: str):
             break
 
         frame_count += 1
+        
+        # Optimization: Resize frame for faster inference and smaller output
+        frame = cv2.resize(frame, (width, height))
         
         # Run tracking
         results = model.track(frame, persist=True, tracker="bytetrack.yaml", verbose=False)
@@ -109,7 +118,8 @@ def _run_cv_pipeline_impl(video_path: str):
                             type_breakdown[label] = type_breakdown.get(label, 0) + 1
                             
                             # Log for CSV
-                            tracking_data.append([frame_count, track_id, label])
+                            timestamp = round(frame_count / fps, 2)
+                            tracking_data.append([frame_count, timestamp, track_id, label])
                             
                             print(f"[Count] Vehicle {track_id} ({label}) crossed the line! Total: {total_vehicles_counted}")
                 
@@ -130,9 +140,10 @@ def _run_cv_pipeline_impl(video_path: str):
 
         out.write(frame)
 
-        # No-op to allow other threads to breathe (optional)
-        if frame_count % 30 == 0:
-            pass
+        # Update progress every 10 frames
+        if frame_count % 10 == 0:
+            progress = int((frame_count / total_frames) * 100) if total_frames > 0 else 0
+            update_status(video_id, "processing", progress=progress)
 
     cap.release()
     out.release()
@@ -194,7 +205,7 @@ def _run_cv_pipeline_impl(video_path: str):
         writer.writerow([])
         
         # Detailed Tracking Data
-        writer.writerow(["Frame Number", "Vehicle ID", "Vehicle Type"])
+        writer.writerow(["Frame Number", "Timestamp (sec)", "Vehicle ID", "Vehicle Type"])
         writer.writerows(tracking_data)
 
     # Convert NumPy types to standard Python types for JSON serialization
@@ -207,7 +218,7 @@ def _run_cv_pipeline_impl(video_path: str):
         "duration": float(duration),
         "recent_detections": [[int(x) if isinstance(x, (int, float)) else str(x) for x in row] for row in tracking_data[-10:]]
     }
-    update_status(video_id, "completed", results_data)
+    update_status(video_id, "completed", results_data, progress=100)
     
     print(f"--- [CV Pipeline] Finished. Report saved: {report_path} ---")
 
