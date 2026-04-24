@@ -71,7 +71,7 @@ The frontend will be available at `http://localhost:3000`.
 We utilize **YOLOv8 (yolov8n.pt)** for fast and accurate vehicle detection (cars, trucks, buses, motorcycles). To solve the "memory" problem where a vehicle might be lost behind a tree or sign, we integrate **ByteTrack**. This assigns a unique `track_id` to every object that persists across frames.
 
 ### Performance Optimizations
-- **Frame Resizing**: All incoming frames are resized to **640px width** (maintaining aspect ratio) before inference. This ensures high-speed processing (up to 3x faster) without sacrificing detection accuracy for the YOLO model.
+- **Inference Scaling**: Inference is performed at **800px** with a **0.20 confidence threshold**. This configuration is tuned to balance processing speed with the ability to detect smaller, distant vehicles that appear as small pixel clusters in aerial footage.
 - **Asynchronous Re-encoding**: The system processes video in `mp4v` for speed, then performs a high-efficiency **H.264 pass with ffmpeg** using `+faststart` to ensure the final output is streamable in all modern browsers.
 
 ### The Virtual Counting Line

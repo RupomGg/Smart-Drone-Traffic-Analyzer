@@ -78,9 +78,9 @@ def _run_cv_pipeline_impl(video_path: str):
 
         frame_count += 1
         
-        # Run tracking with imgsz=640 for speed optimization
-        # YOLO handles internal scaling while returning coordinates in original frame space
-        results = model.track(frame, persist=True, tracker="bytetrack.yaml", verbose=False, imgsz=640)
+        # Run tracking with imgsz=800 and lower confidence for better distant object detection
+        # Higher imgsz helps detect smaller objects (cars in the distance)
+        results = model.track(frame, persist=True, tracker="bytetrack.yaml", verbose=False, imgsz=800, conf=0.20)
         
         # Draw counting line
         cv2.line(frame, (0, line_y), (width, line_y), (0, 0, 255), 3)
