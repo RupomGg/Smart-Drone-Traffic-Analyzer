@@ -270,33 +270,48 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Simulated Terminal */}
+            {/* Mac-Style Terminal */}
             <div className="relative group">
-              <div className="absolute -inset-1 bg-gradient-to-r from-brand-red/20 to-brand-purple/20 rounded-[32px] blur-xl opacity-50"></div>
-              <div
-                ref={terminalRef}
-                className="relative bg-black/90 rounded-3xl border border-white/10 p-8 h-[450px] overflow-y-auto font-mono text-sm space-y-2 scrollbar-thin scrollbar-thumb-white/10"
-              >
-                {logs.map((log, i) => (
-                  <div key={i} className="flex gap-4 animate-in fade-in slide-in-from-left-2 duration-300">
-                    <span className="text-slate-600 shrink-0">[{i.toString().padStart(3, '0')}]</span>
-                    <span className={`
-                      ${log.includes('[SYSTEM]') ? 'text-blue-400' : ''}
-                      ${log.includes('[GPU]') ? 'text-purple-400' : ''}
-                      ${log.includes('[ENGINE]') ? 'text-green-400' : ''}
-                      ${log.includes('[PROCESS]') ? 'text-slate-400' : ''}
-                      ${log.includes('[TRACKER]') ? 'text-brand-red font-bold' : ''}
-                      ${log.includes('[TELEMETRY]') ? 'text-yellow-400 font-black' : 'text-slate-300'}
-                    `}>
-                      {log}
-                    </span>
+              <div className="absolute -inset-1 bg-gradient-to-r from-brand-red/20 to-brand-purple/20 rounded-[32px] blur-2xl opacity-50"></div>
+              <div className="relative bg-black/95 rounded-[32px] border border-white/10 overflow-hidden shadow-2xl">
+                {/* Terminal Header */}
+                <div className="bg-white/5 border-b border-white/5 px-6 py-4 flex items-center justify-between">
+                  <div className="flex gap-2">
+                    <div className="w-3 h-3 rounded-full bg-[#ff5f56]"></div>
+                    <div className="w-3 h-3 rounded-full bg-[#ffbd2e]"></div>
+                    <div className="w-3 h-3 rounded-full bg-[#27c93f]"></div>
                   </div>
-                ))}
-                {logs.length === 0 && (
-                  <div className="text-slate-500 italic animate-pulse">Establishing secure connection to HF ZeroGPU Space...</div>
-                )}
-                <div className="flex gap-4 items-center pt-2">
-                  <span className="text-brand-red animate-pulse">_</span>
+                  <div className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">
+                    zsh — neural_engine_v11
+                  </div>
+                  <div className="w-12"></div>
+                </div>
+
+                <div 
+                  ref={terminalRef}
+                  className="p-8 h-[380px] overflow-y-auto font-mono text-[11px] space-y-2 scrollbar-none"
+                >
+                  {logs.map((log, i) => (
+                    <div key={i} className="flex gap-4 animate-in fade-in slide-in-from-left-2 duration-300">
+                      <span className="text-slate-800 shrink-0 font-black">{i.toString().padStart(3, '0')}</span>
+                      <span className={`
+                        ${log.includes('[SYSTEM]') ? 'text-blue-400' : ''}
+                        ${log.includes('[GPU]') ? 'text-purple-400' : ''}
+                        ${log.includes('[ENGINE]') ? 'text-green-400 font-bold' : ''}
+                        ${log.includes('[TRACKER]') ? 'text-brand-red font-black underline decoration-brand-red/20 underline-offset-4' : ''}
+                        ${log.includes('[TELEMETRY]') ? 'text-yellow-400 font-black bg-yellow-400/5 px-2 py-0.5 rounded' : 'text-slate-300'}
+                      `}>
+                        {log}
+                      </span>
+                    </div>
+                  ))}
+                  {logs.length === 0 && (
+                    <div className="text-slate-500 italic animate-pulse">Establishing secure connection to HF ZeroGPU Space...</div>
+                  )}
+                  <div className="flex gap-2 items-center pt-2">
+                    <span className="text-brand-red animate-pulse font-black">❯</span>
+                    <span className="w-2 h-4 bg-brand-red/50 animate-pulse"></span>
+                  </div>
                 </div>
               </div>
             </div>
