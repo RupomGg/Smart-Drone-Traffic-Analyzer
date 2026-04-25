@@ -76,7 +76,7 @@ export default function Home() {
           const data = await response.json();
           setStatus(data.message);
         } else setStatus('Offline');
-      } catch (error) {
+      } catch {
         setStatus('Offline');
       }
     };
@@ -140,7 +140,7 @@ export default function Home() {
         const data = await response.json();
         startPolling(data.video_id);
       } else setError('Upload failed. Server might be busy.');
-    } catch (err) { setError('Connection failed. Backend is unreachable.'); }
+    } catch { setError('Connection failed. Backend is unreachable.'); }
     finally { setIsUploading(false); }
   };
 
@@ -191,8 +191,6 @@ export default function Home() {
               API_URL={API_URL}
               chartData={chartData}
               filteredHistory={filteredHistory}
-              filterType={filterType}
-              setFilterType={setFilterType}
               onReset={resetAnalysis}
             />
           )

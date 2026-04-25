@@ -18,15 +18,13 @@ interface DashboardProps {
   videoId: string;
   results: AnalysisResults;
   API_URL: string;
-  chartData: any[];
-  filteredHistory: any[];
-  filterType: string;
-  setFilterType: (type: string) => void;
+  chartData: { time: string; count: number }[];
+  filteredHistory: [number, number, number, string][];
   onReset: () => void;
 }
 
 export const Dashboard = ({ 
-  videoId, results, API_URL, chartData, filteredHistory, filterType, setFilterType, onReset 
+  videoId, results, API_URL, chartData, filteredHistory, onReset 
 }: DashboardProps) => (
   <div className="space-y-6 animate-in slide-in-from-bottom-8 duration-700">
     {/* Compact Header */}
