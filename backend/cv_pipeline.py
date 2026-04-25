@@ -158,8 +158,12 @@ class TrafficAnalyzer:
                             type_breakdown[label] = type_breakdown.get(label, 0) + 1
                             timestamp_log = round(frame_count/props['fps'], 2)
                             tracking_data.append([frame_count, timestamp_log, track_id, label])
-                            add_log(video_id, f"[TRACKER] NEW ENTITY IDENTIFIED: ID-{track_id} (CLASS: {label.upper()}) at {timestamp_log}s")
-                            add_log(video_id, f"[TELEMETRY] LIVE TRAFFIC COUNT: {len(counted_ids)}")
+                            msg1 = f"[TRACKER] NEW ENTITY IDENTIFIED: ID-{track_id} (CLASS: {label.upper()}) at {timestamp_log}s"
+                            msg2 = f"[TELEMETRY] LIVE TRAFFIC COUNT: {len(counted_ids)}"
+                            add_log(video_id, msg1)
+                            add_log(video_id, msg2)
+                            print(msg1)
+                            print(msg2)
 
                     prev_positions[track_id] = (cx, cy, x1, y1, x2, y2)
 
@@ -174,7 +178,9 @@ class TrafficAnalyzer:
             if frame_count % 10 == 0:
                 progress = int((frame_count / props['total_frames']) * 100) if props['total_frames'] > 0 else 0
                 update_status(video_id, "processing", progress=progress)
-                add_log(video_id, f"[PROCESS] ANALYSED FRAME {frame_count} | PROGRESS: {progress}%")
+                msg = f"[PROCESS] ANALYSED FRAME {frame_count} | PROGRESS: {progress}%"
+                add_log(video_id, msg)
+                print(msg)
 
         cap.release()
         out.release()
