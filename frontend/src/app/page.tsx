@@ -6,7 +6,7 @@ import {
 } from 'recharts';
 import { 
   Filter, Activity, BarChart3, Clock, Car, Info, ChevronDown, Download, RefreshCcw, 
-  Play, CheckCircle2, AlertCircle, FileVideo
+  Play, CheckCircle2, AlertCircle, FileVideo, Upload, Cpu, ShieldCheck, Zap
 } from 'lucide-react';
 
 interface AnalysisResults {
@@ -29,7 +29,7 @@ export default function Home() {
     API_URL = `https://${API_URL}`;
   }
   
-  const [status, setStatus] = useState<string>('Connecting to API...');
+  const [status, setStatus] = useState<string>('Initializing...');
   const [progress, setProgress] = useState<number>(0);
   const [uploadStatus, setUploadStatus] = useState<string>('');
   const [error, setError] = useState<string>('');
@@ -43,23 +43,17 @@ export default function Home() {
   
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Memoized filtered results
   const filteredHistory = useMemo(() => {
     if (!results) return [];
     if (filterType === 'all') return results.full_tracking_history;
     return results.full_tracking_history.filter(det => det[3] === filterType);
   }, [results, filterType]);
 
-  // Group data for the chart (Vehicles per 2 second interval)
   const chartData = useMemo(() => {
     if (!results) return [];
-    const interval = 2; // seconds
+    const interval = 2;
     const buckets: Record<number, number> = {};
-    
-    // Initialize buckets
-    for (let i = 0; i <= results.duration; i += interval) {
-      buckets[i] = 0;
-    }
+    for (let i = 0; i <= results.duration; i += interval) buckets[i] = 0;
 
     filteredHistory.forEach(det => {
       const time = det[1];
@@ -80,30 +74,21 @@ export default function Home() {
         if (response.ok) {
           const data = await response.json();
           setStatus(data.message);
-        } else {
-          setStatus('Offline');
-        }
+        } else setStatus('Offline');
       } catch (error) {
-        console.error('Error fetching health status:', error);
         setStatus('Offline');
       }
     };
-
     checkHealth();
-    
-    return () => {
-      if (pollingRef.current) clearInterval(pollingRef.current);
-    };
-  }, []);
+    return () => { if (pollingRef.current) clearInterval(pollingRef.current); };
+  }, [API_URL]);
 
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     setError('');
-    setUploadStatus('');
     const selectedFile = e.target.files?.[0];
-
     if (selectedFile) {
       if (selectedFile.type !== 'video/mp4') {
-        setError('Only .mp4 files are accepted.');
+        setError('Please upload a valid .mp4 file.');
         setFile(null);
         return;
       }
@@ -114,16 +99,11 @@ export default function Home() {
   const startPolling = (vId: string) => {
     setIsProcessing(true);
     setVideoId(vId);
-    
     pollingRef.current = setInterval(async () => {
       try {
         const response = await fetch(`${API_URL}/status/${vId}`);
         const data: StatusInfo = await response.json();
-        
-        if (data.status === 'processing') {
-          setProgress(data.progress);
-        }
-
+        if (data.status === 'processing') setProgress(data.progress);
         if (data.status === 'completed' && data.results) {
           if (pollingRef.current) clearInterval(pollingRef.current);
           setIsProcessing(false);
@@ -131,156 +111,126 @@ export default function Home() {
           setProgress(100);
           setProcessingDone(true);
         }
-      } catch (err) {
-        console.error('Polling error:', err);
-      }
+      } catch (err) { console.error('Polling error:', err); }
     }, 3000);
   };
 
   const handleUpload = async () => {
-    if (!file) {
-      setError('Please select an MP4 file first.');
-      return;
-    }
-
+    if (!file) return;
     setIsUploading(true);
-    setUploadStatus('Uploading...');
     const formData = new FormData();
     formData.append('file', file);
-
     try {
-      const response = await fetch(`${API_URL}/upload`, {
-        method: 'POST',
-        body: formData,
-      });
-
+      const response = await fetch(`${API_URL}/upload`, { method: 'POST', body: formData });
       if (response.ok) {
         const data = await response.json();
         startPolling(data.video_id);
-      } else {
-        const errorData = await response.json();
-        setError(errorData.detail || 'Upload failed.');
-      }
-    } catch (err) {
-      console.error('Upload error:', err);
-      setError('Server connection failed. Please check if the backend is running.');
-    } finally {
-      setIsUploading(false);
-    }
+      } else setError('Upload failed. Server might be busy.');
+    } catch (err) { setError('Connection failed. Backend is unreachable.'); }
+    finally { setIsUploading(false); }
   };
 
   return (
-    <div className="min-h-screen bg-dark-bg text-slate-200 selection:bg-brand-red selection:text-white">
-      {/* Sleek Top Nav */}
-      <nav className="border-b border-slate-800 bg-dark-bg/80 backdrop-blur-md sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-purple via-brand-crimson to-brand-red flex items-center justify-center shadow-lg shadow-brand-crimson/20">
-              <Car className="h-6 w-6 text-white" />
+    <div className="min-h-screen text-slate-200">
+      {/* Premium Navigation */}
+      <nav className="fixed top-0 inset-x-0 z-50 glass-panel h-20">
+        <div className="max-w-7xl mx-auto h-full px-8 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-2xl bg-brand-gradient flex items-center justify-center shadow-lg glow-red animate-float">
+              <Car className="h-7 w-7 text-white" />
             </div>
-            <h1 className="text-xl font-bold tracking-tight text-gradient">
-              Smart Drone Traffic Analyzer
-            </h1>
+            <div>
+              <h1 className="text-2xl font-black tracking-tight text-white leading-none">SmartDrone</h1>
+              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-brand-red">Traffic Analytics</span>
+            </div>
           </div>
-          <div className="flex items-center gap-4 text-xs font-medium">
-            <span className="text-slate-500 uppercase tracking-widest">System Status:</span>
-            <div className="flex items-center gap-2 px-3 py-1 bg-slate-900 rounded-full border border-slate-800">
+          <div className="flex items-center gap-6">
+            <div className="hidden md:flex items-center gap-2 px-4 py-2 glass-card rounded-full border-glass-border">
               <div className={`w-2 h-2 rounded-full ${status === 'Offline' ? 'bg-red-500' : 'bg-green-500 animate-pulse'}`}></div>
-              <span className={status === 'Offline' ? 'text-red-400' : 'text-green-400'}>{status}</span>
+              <span className={`text-xs font-bold ${status === 'Offline' ? 'text-red-400' : 'text-green-400'}`}>{status}</span>
             </div>
           </div>
         </div>
       </nav>
 
-      <main className="max-w-7xl mx-auto px-6 py-12">
+      <main className="pt-32 pb-20 px-8 max-w-7xl mx-auto">
         {!isProcessing && !processingDone && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center animate-in fade-in slide-in-from-bottom-10 duration-1000">
-            <div className="space-y-8">
-              <div className="space-y-4">
-                <h2 className="text-5xl font-black text-white leading-tight">
-                  Intelligent Traffic <br />
-                  <span className="text-slate-500">Analysis from Above.</span>
+          <div className="grid lg:grid-cols-12 gap-16 items-center">
+            <div className="lg:col-span-7 space-y-10">
+              <div className="space-y-6">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-red/10 border border-brand-red/20 text-brand-red text-xs font-black uppercase tracking-widest">
+                  <Zap className="w-3 h-3" />
+                  AI-Powered Surveillance
+                </div>
+                <h2 className="text-7xl font-black text-white leading-[0.9] tracking-tighter">
+                  Next-Gen <br />
+                  <span className="text-brand-gradient">Traffic Intel.</span>
                 </h2>
-                <p className="text-lg text-slate-400 max-w-lg leading-relaxed">
-                  Upload your drone footage and let our YOLOv8-powered engine detect, track, and count vehicles with surgical precision.
+                <p className="text-xl text-slate-400 max-w-xl leading-relaxed font-light">
+                  Transform raw drone footage into actionable insights. Leveraging <span className="text-white font-medium">YOLOv11</span> and <span className="text-white font-medium">ByteTrack</span> for surgical precision in vehicle tracking and counting.
                 </p>
               </div>
               
-              <div className="flex gap-4">
-                <div className="p-4 bg-card-bg rounded-2xl border border-slate-800 space-y-1">
-                  <p className="text-2xl font-bold text-white">YOLOv8</p>
-                  <p className="text-xs text-slate-500 uppercase tracking-wider font-bold">Detection</p>
-                </div>
-                <div className="p-4 bg-card-bg rounded-2xl border border-slate-800 space-y-1">
-                  <p className="text-2xl font-bold text-white">ByteTrack</p>
-                  <p className="text-xs text-slate-500 uppercase tracking-wider font-bold">Persistence</p>
-                </div>
+              <div className="grid grid-cols-3 gap-6">
+                {[
+                  { icon: Cpu, label: "Neural Engine", sub: "YOLOv8m" },
+                  { icon: ShieldCheck, label: "Persistence", sub: "ByteTrack" },
+                  { icon: Activity, label: "Real-time", sub: "A100 GPU" }
+                ].map((item, i) => (
+                  <div key={i} className="glass-card p-6 rounded-3xl space-y-3">
+                    <item.icon className="w-6 h-6 text-brand-red" />
+                    <div>
+                      <p className="text-sm font-black text-white">{item.label}</p>
+                      <p className="text-[10px] text-slate-500 uppercase tracking-widest font-black">{item.sub}</p>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
 
-            <div className="w-full max-w-xl mx-auto lg:ml-auto">
-              <div className="p-8 bg-card-bg rounded-3xl border border-slate-800 shadow-2xl space-y-6">
-                <div 
-                  className={`relative group border-2 border-dashed rounded-2xl p-10 flex flex-col items-center justify-center gap-4 transition-all duration-300 ${
-                    file 
-                      ? 'border-brand-red bg-brand-red/5' 
-                      : 'border-slate-700 hover:border-brand-crimson bg-slate-900/50'
-                  }`}
-                >
-                  <div className="w-16 h-16 rounded-2xl bg-slate-800 flex items-center justify-center text-slate-400 group-hover:scale-110 transition-transform group-hover:text-brand-red">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                    </svg>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-lg font-bold text-white">Drop your MP4 here</p>
-                    <p className="text-sm text-slate-500">or click to browse your files</p>
-                  </div>
-                  <input 
-                    type="file" 
-                    accept=".mp4" 
-                    onChange={handleFileChange}
-                    className="absolute inset-0 opacity-0 cursor-pointer"
-                  />
+            <div className="lg:col-span-5">
+              <div className="glass-panel p-10 rounded-[40px] space-y-8 relative overflow-hidden group">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-brand-red/10 blur-3xl -mr-16 -mt-16"></div>
+                
+                <div className="space-y-2 text-center">
+                  <h3 className="text-2xl font-black text-white">Upload Footage</h3>
+                  <p className="text-sm text-slate-500">Provide an MP4 drone video for analysis</p>
                 </div>
 
-                {file && (
-                  <div className="flex items-center justify-between p-4 bg-slate-900 rounded-xl border border-slate-800">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-blue-500/10 text-blue-400 rounded-lg">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                          <path d="M2 6a2 2 0 012-2h6a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM14.553 7.106A1 1 0 0014 8v4a1 1 0 00.553.894l2 1A1 1 0 0018 13V7a1 1 0 00-1.447-.894l-2 1z" />
-                        </svg>
-                      </div>
-                      <span className="text-sm font-medium text-slate-200 truncate max-w-[200px]">{file.name}</span>
+                <div 
+                  className={`relative cursor-pointer border-2 border-dashed rounded-3xl p-12 transition-all duration-500 group/drop ${
+                    file ? 'border-brand-red bg-brand-red/5' : 'border-slate-800 hover:border-brand-red/50 bg-slate-900/30'
+                  }`}
+                >
+                  <input type="file" accept=".mp4" onChange={handleFileChange} className="absolute inset-0 opacity-0 cursor-pointer z-10" />
+                  <div className="flex flex-col items-center gap-4">
+                    <div className="w-20 h-20 rounded-2xl bg-slate-800 flex items-center justify-center text-slate-500 group-hover/drop:scale-110 group-hover/drop:text-brand-red transition-all duration-500">
+                      <Upload className="w-10 h-10" />
                     </div>
-                    <button onClick={() => setFile(null)} className="text-slate-500 hover:text-red-400 transition-colors">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                      </svg>
-                    </button>
+                    {file ? (
+                      <div className="text-center">
+                        <p className="text-lg font-bold text-white truncate max-w-[250px]">{file.name}</p>
+                        <p className="text-xs text-brand-red font-black uppercase mt-1">Ready for Analysis</p>
+                      </div>
+                    ) : (
+                      <div className="text-center">
+                        <p className="text-lg font-bold text-slate-300">Drop MP4 file here</p>
+                        <p className="text-sm text-slate-500">Maximum size: 100MB</p>
+                      </div>
+                    )}
                   </div>
-                )}
+                </div>
 
-                {error && (
-                  <p className="text-sm text-brand-red font-bold text-center">{error}</p>
-                )}
+                {error && <div className="flex items-center gap-2 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl text-red-400 text-sm font-medium"><AlertCircle className="w-4 h-4" />{error}</div>}
 
                 <button
                   onClick={handleUpload}
                   disabled={!file || isUploading}
-                  className={`w-full py-4 rounded-xl font-black text-lg transition-all transform active:scale-95 flex items-center justify-center gap-3 ${
-                    file && !isUploading
-                      ? 'bg-gradient-to-r from-brand-purple to-brand-red text-white shadow-xl shadow-brand-red/20 hover:opacity-90' 
-                      : 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                  className={`w-full py-5 rounded-2xl font-black text-lg transition-all transform active:scale-95 flex items-center justify-center gap-3 shadow-2xl ${
+                    file && !isUploading ? 'bg-brand-gradient text-white glow-red hover:brightness-110' : 'bg-slate-800 text-slate-500 cursor-not-allowed'
                   }`}
                 >
-                  {isUploading ? (
-                    <>
-                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                      Processing Upload...
-                    </>
-                  ) : 'Analyze Video'}
+                  {isUploading ? <><div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>Uploading...</> : 'Initiate Analysis'}
                 </button>
               </div>
             </div>
@@ -288,231 +238,154 @@ export default function Home() {
         )}
 
         {isProcessing && (
-          <div className="flex flex-col items-center justify-center gap-10 py-20 animate-in fade-in zoom-in duration-500">
+          <div className="flex flex-col items-center justify-center gap-12 py-32 animate-in fade-in zoom-in duration-700">
             <div className="relative">
-              <div className="w-32 h-32 rounded-full border-4 border-slate-800 border-t-brand-red animate-spin"></div>
+              <div className="w-48 h-48 rounded-full border-[6px] border-slate-900 border-t-brand-red animate-spin"></div>
               <div className="absolute inset-0 flex items-center justify-center">
-                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-brand-purple to-brand-red animate-pulse"></div>
+                <div className="w-24 h-24 rounded-full bg-brand-gradient flex items-center justify-center shadow-2xl glow-red animate-pulse">
+                  <Activity className="w-10 h-10 text-white" />
+                </div>
               </div>
             </div>
-            <div className="space-y-4 text-center">
-              <h2 className="text-3xl font-black text-white">AI Engine Processing: {progress}%</h2>
-              <p className="text-slate-400 max-w-sm">Detections are being calculated. Our ByteTrack algorithm is establishing object persistence across frames.</p>
-            </div>
-            <div className="w-full max-w-md bg-slate-900 h-3 rounded-full overflow-hidden border border-slate-800">
-              <div 
-                className="bg-gradient-to-r from-brand-purple via-brand-crimson to-brand-red h-full transition-all duration-500 ease-out"
-                style={{ width: `${progress}%` }}
-              ></div>
+            <div className="space-y-6 text-center max-w-lg">
+              <h2 className="text-4xl font-black text-white tracking-tighter">Analyzing Stream: {progress}%</h2>
+              <p className="text-slate-400 leading-relaxed font-light text-lg">Our neural network is mapping object trajectories. ByteTrack is currently assigning unique IDs and ensuring temporal persistence.</p>
+              <div className="w-full bg-slate-900 h-4 rounded-full overflow-hidden border border-slate-800 p-1">
+                <div className="bg-brand-gradient h-full rounded-full transition-all duration-500" style={{ width: `${progress}%` }}></div>
+              </div>
             </div>
           </div>
         )}
 
         {processingDone && videoId && results && (
-          <div className="space-y-10 animate-in slide-in-from-bottom-10 duration-1000">
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="h-4 w-4 text-brand-red" />
-                  <span className="text-xs font-black uppercase tracking-widest text-brand-red">Analysis Success</span>
+          <div className="space-y-12 animate-in slide-in-from-bottom-12 duration-1000">
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-8">
+              <div className="space-y-4">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-green-500/10 border border-green-500/20 text-green-400 text-xs font-black uppercase tracking-widest">
+                  <CheckCircle2 className="w-3 h-3" />
+                  Mission Completed
                 </div>
-                <h2 className="text-4xl font-black text-white">Processed Results</h2>
+                <h2 className="text-5xl font-black text-white tracking-tighter">Operational Analytics</h2>
               </div>
               <div className="flex gap-4">
-                <a 
-                  href={`${API_URL}/report/${videoId}`}
-                  download
-                  className="px-6 py-3 bg-gradient-to-r from-brand-purple to-brand-crimson text-white rounded-xl font-bold transition-all flex items-center gap-2 shadow-lg shadow-brand-purple/20 hover:opacity-90 active:scale-95"
-                >
-                  <Download className="h-5 w-5" />
-                  Download Report
-                </a>
-                <button 
-                  onClick={() => { setProcessingDone(false); setVideoId(null); setFile(null); setResults(null); setProgress(0); setFilterType('all'); }}
-                  className="px-6 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-bold transition-all flex items-center gap-2 active:scale-95"
-                >
-                  <RefreshCcw className="h-5 w-5" />
-                  New Analysis
-                </button>
+                <a href={`${API_URL}/report/${videoId}`} download className="px-8 py-4 glass-card border-brand-red/30 text-white rounded-2xl font-black transition-all flex items-center gap-3 hover:bg-brand-red/10 active:scale-95"><Download className="w-5 h-5" />Export Report</a>
+                <button onClick={() => { setProcessingDone(false); setVideoId(null); setFile(null); setResults(null); }} className="px-8 py-4 bg-brand-gradient text-white rounded-2xl font-black shadow-2xl glow-red flex items-center gap-3 hover:brightness-110 active:scale-95"><RefreshCcw className="w-5 h-5" />New Mission</button>
               </div>
             </div>
             
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-              <div className="lg:col-span-2 space-y-8">
-                <div className="bg-black rounded-3xl overflow-hidden shadow-2xl ring-1 ring-slate-800">
-                  <video 
-                    controls 
-                    autoPlay
-                    muted
-                    playsInline
-                    className="w-full aspect-video"
-                    src={`${API_URL}/video/${videoId}`}
-                  >
-                    Your browser does not support the video tag.
-                  </video>
+            <div className="grid lg:grid-cols-12 gap-8">
+              <div className="lg:col-span-8 space-y-8">
+                <div className="glass-panel p-2 rounded-[40px] overflow-hidden shadow-2xl ring-1 ring-white/10">
+                  <video controls autoPlay muted playsInline className="w-full aspect-video rounded-[36px]" src={`${API_URL}/video/${videoId}`}>Your browser does not support video.</video>
                 </div>
 
-                <div className="bg-card-bg rounded-3xl border border-slate-800 p-8 space-y-6">
+                <div className="glass-panel p-10 rounded-[40px] space-y-8">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-xl font-bold text-white flex items-center gap-2">
-                      <Activity className="h-6 w-6 text-brand-red" />
-                      Traffic Intensity Over Time
-                    </h3>
-                    <div className="text-xs text-slate-500 font-medium bg-slate-900 px-3 py-1 rounded-full border border-slate-800">
-                      Bucket: 2s
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-2xl bg-blue-500/10 flex items-center justify-center text-blue-400"><Activity className="w-6 h-6" /></div>
+                      <h3 className="text-2xl font-black text-white tracking-tight">Temporal Intensity</h3>
                     </div>
+                    <div className="text-[10px] text-slate-500 font-black uppercase tracking-widest px-4 py-2 glass-card rounded-full">Interval: 2s</div>
                   </div>
-                  
-                  <div className="h-[250px] w-full">
+                  <div className="h-[300px] w-full">
                     <ResponsiveContainer width="100%" height="100%">
                       <AreaChart data={chartData}>
                         <defs>
                           <linearGradient id="colorCount" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#de3b36" stopOpacity={0.3}/>
-                            <stop offset="95%" stopColor="#de3b36" stopOpacity={0}/>
+                            <stop offset="5%" stopColor="#de3b36" stopOpacity={0.3}/><stop offset="95%" stopColor="#de3b36" stopOpacity={0}/>
                           </linearGradient>
                         </defs>
                         <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
-                        <XAxis 
-                          dataKey="time" 
-                          stroke="#64748b" 
-                          fontSize={12} 
-                          tickLine={false} 
-                          axisLine={false}
-                        />
-                        <YAxis 
-                          stroke="#64748b" 
-                          fontSize={12} 
-                          tickLine={false} 
-                          axisLine={false}
-                          allowDecimals={false}
-                        />
-                        <Tooltip 
-                          contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px' }}
-                          itemStyle={{ color: '#f8fafc' }}
-                        />
-                        <Area 
-                          type="monotone" 
-                          dataKey="count" 
-                          stroke="#de3b36" 
-                          strokeWidth={3}
-                          fillOpacity={1} 
-                          fill="url(#colorCount)" 
-                          animationDuration={1500}
-                        />
+                        <XAxis dataKey="time" stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} />
+                        <YAxis stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} allowDecimals={false} />
+                        <Tooltip contentStyle={{ backgroundColor: '#0f172a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '16px', fontWeight: 'bold' }} itemStyle={{ color: '#f8fafc' }} />
+                        <Area type="monotone" dataKey="count" stroke="#de3b36" strokeWidth={4} fillOpacity={1} fill="url(#colorCount)" animationDuration={2000} />
                       </AreaChart>
                     </ResponsiveContainer>
                   </div>
                 </div>
 
-                <div className="bg-card-bg rounded-3xl border border-slate-800 p-8 space-y-6">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <h3 className="text-xl font-bold text-white flex items-center gap-2">
-                      <Filter className="h-6 w-6 text-brand-red" />
-                      Event History
-                    </h3>
-                    
+                <div className="glass-panel p-10 rounded-[40px] space-y-8">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-2xl bg-brand-red/10 flex items-center justify-center text-brand-red"><Filter className="w-6 h-6" /></div>
+                      <h3 className="text-2xl font-black text-white tracking-tight">Event Telemetry</h3>
+                    </div>
                     <div className="flex flex-wrap gap-2">
                       {['all', ...Object.keys(results.type_breakdown)].map(type => (
-                        <button
-                          key={type}
-                          onClick={() => setFilterType(type)}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all capitalize ${
-                            filterType === type 
-                              ? 'bg-brand-red text-white shadow-lg shadow-brand-red/20' 
-                              : 'bg-slate-900 text-slate-500 hover:text-slate-300 border border-slate-800'
-                          }`}
-                        >
-                          {type}
-                        </button>
+                        <button key={type} onClick={() => setFilterType(type)} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${filterType === type ? 'bg-brand-gradient text-white shadow-lg' : 'glass-card text-slate-500 hover:text-white'}`}>{type}</button>
                       ))}
                     </div>
                   </div>
-                  
                   <div className="overflow-x-auto">
                     <table className="w-full text-left">
                       <thead>
-                        <tr className="border-b border-slate-800 text-slate-500 text-xs font-black uppercase tracking-widest">
-                          <th className="pb-4 px-2">Time</th>
-                          <th className="pb-4 px-2">Vehicle ID</th>
-                          <th className="pb-4 px-2">Type</th>
+                        <tr className="text-slate-500 text-[10px] font-black uppercase tracking-[0.2em] border-b border-white/5">
+                          <th className="pb-6 px-4">Timestamp</th><th className="pb-6 px-4">Entity ID</th><th className="pb-6 px-4">Classification</th>
                         </tr>
                       </thead>
                       <tbody className="text-sm">
-                        {filteredHistory.slice().reverse().slice(0, 15).map((det, idx) => (
-                          <tr key={idx} className="border-b border-slate-800/50 hover:bg-slate-900/50 transition-colors animate-in fade-in slide-in-from-left-2 duration-300" style={{ animationDelay: `${idx * 50}ms` }}>
-                            <td className="py-4 px-2 text-slate-400 font-mono">{det[1]}s</td>
-                            <td className="py-4 px-2 font-mono text-blue-400">ID-{det[2]}</td>
-                            <td className="py-4 px-2">
-                              <span className="px-2 py-1 bg-slate-800 rounded text-xs font-bold text-slate-300 capitalize">
-                                {det[3]}
-                              </span>
-                            </td>
+                        {filteredHistory.slice().reverse().slice(0, 10).map((det, idx) => (
+                          <tr key={idx} className="border-b border-white/5 hover:bg-white/5 transition-all group">
+                            <td className="py-6 px-4 font-mono text-slate-400">{det[1]}s</td>
+                            <td className="py-6 px-4 font-black text-blue-400">#TRK-{det[2]}</td>
+                            <td className="py-6 px-4"><span className="px-3 py-1.5 glass-card rounded-lg text-[10px] font-black uppercase tracking-widest text-white">{det[3]}</span></td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
-                    {filteredHistory.length === 0 && (
-                      <div className="py-12 text-center text-slate-500 text-sm">
-                        No events found for the selected filter.
-                      </div>
-                    )}
                   </div>
                 </div>
               </div>
               
-              <div className="space-y-6">
-                <div className="p-6 bg-card-bg rounded-2xl border border-slate-800 space-y-4">
-                  <div className="space-y-1">
-                    <p className="text-xs text-slate-500 uppercase tracking-wider font-bold">
-                      {filterType === 'all' ? 'Total Vehicles' : `${filterType}s`} Count
-                    </p>
-                    <p className="text-5xl font-black text-white">{filteredHistory.length}</p>
+              <div className="lg:col-span-4 space-y-8">
+                <div className="glass-panel p-10 rounded-[40px] space-y-6 relative overflow-hidden">
+                  <div className="absolute top-0 left-0 w-full h-1 bg-brand-gradient"></div>
+                  <div>
+                    <p className="text-[10px] text-slate-500 uppercase tracking-[0.2em] font-black">{filterType === 'all' ? 'Total Fleet' : `${filterType}s`} Identified</p>
+                    <p className="text-7xl font-black text-white tracking-tighter">{filteredHistory.length}</p>
                   </div>
                   <div className="h-2 w-full bg-slate-900 rounded-full overflow-hidden">
-                    <div 
-                      className="h-full bg-brand-red transition-all duration-1000" 
-                      style={{ width: `${(filteredHistory.length / results.total_count) * 100}%` }}
-                    ></div>
+                    <div className="h-full bg-brand-gradient transition-all duration-1500 ease-out" style={{ width: `${(filteredHistory.length / results.total_count) * 100}%` }}></div>
                   </div>
                 </div>
                 
-                <div className="p-6 bg-card-bg rounded-2xl border border-slate-800 space-y-4">
-                  <p className="text-xs text-slate-500 uppercase tracking-wider font-bold flex items-center gap-2">
-                    <BarChart3 className="h-4 w-4" />
-                    Overall Breakdown
-                  </p>
-                  <div className="space-y-3">
+                <div className="glass-panel p-10 rounded-[40px] space-y-8">
+                  <p className="text-[10px] text-slate-500 uppercase tracking-[0.2em] font-black flex items-center gap-2"><BarChart3 className="w-3 h-3" />Fleet Composition</p>
+                  <div className="space-y-6">
                     {Object.entries(results.type_breakdown).map(([type, count]) => (
-                      <div key={type} className="flex items-center justify-between">
-                        <span className="text-sm font-medium text-slate-400 capitalize">{type}</span>
-                        <div className="flex items-center gap-3 flex-1 px-4">
-                          <div className="h-1.5 flex-1 bg-slate-900 rounded-full overflow-hidden">
-                            <div 
-                              className="h-full bg-brand-crimson" 
-                              style={{ width: `${(count / results.total_count) * 100}%` }}
-                            ></div>
-                          </div>
+                      <div key={type} className="space-y-3">
+                        <div className="flex items-center justify-between text-xs font-black uppercase tracking-widest">
+                          <span className="text-slate-400">{type}</span>
+                          <span className="text-white">{count}</span>
                         </div>
-                        <span className="text-sm font-bold text-white">{count}</span>
+                        <div className="h-1 w-full bg-slate-900 rounded-full overflow-hidden">
+                          <div className="h-full bg-brand-crimson transition-all duration-1000" style={{ width: `${(count / results.total_count) * 100}%` }}></div>
+                        </div>
                       </div>
                     ))}
                   </div>
                 </div>
 
-                <div className="p-6 bg-card-bg rounded-2xl border border-slate-800 space-y-1">
-                  <p className="text-xs text-slate-500 uppercase tracking-wider font-bold">Processing Duration</p>
-                  <div className="flex items-center gap-2">
-                    <Clock className="h-5 w-5 text-blue-400" />
-                    <p className="text-xl font-bold text-white">{results.duration} seconds</p>
+                <div className="glass-panel p-10 rounded-[40px] space-y-6">
+                  <div className="space-y-1">
+                    <p className="text-[10px] text-slate-500 uppercase tracking-[0.2em] font-black">Mission Time</p>
+                    <div className="flex items-center gap-3">
+                      <Clock className="w-6 h-6 text-blue-400" />
+                      <p className="text-3xl font-black text-white">{results.duration}<span className="text-sm font-light text-slate-500 ml-1">sec</span></p>
+                    </div>
                   </div>
                 </div>
 
-                <div className="p-6 bg-gradient-to-br from-brand-purple to-brand-crimson rounded-2xl shadow-xl space-y-2">
-                  <p className="text-xs text-white/60 uppercase tracking-wider font-bold">Infrastructure Efficiency</p>
-                  <p className="text-sm text-white font-medium leading-relaxed">
-                    Data indicates a vehicle throughput of {((results.total_count / results.duration) * 60).toFixed(1)} vehicles/min during this session.
+                <div className="bg-brand-gradient p-10 rounded-[40px] shadow-2xl glow-red space-y-4">
+                  <p className="text-[10px] text-white/60 uppercase tracking-[0.2em] font-black">Efficiency Metric</p>
+                  <p className="text-xl font-black text-white leading-tight">
+                    Session averaged {((results.total_count / results.duration) * 60).toFixed(1)} detections per minute.
                   </p>
+                  <div className="pt-4 border-t border-white/20 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-white/80">
+                    <ShieldCheck className="w-4 h-4" />
+                    Data Validated
+                  </div>
                 </div>
               </div>
             </div>
