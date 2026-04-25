@@ -159,7 +159,7 @@ class TrafficAnalyzer:
                             timestamp_log = round(frame_count/props['fps'], 2)
                             tracking_data.append([frame_count, timestamp_log, track_id, label])
                             msg1 = f"[TRACKER] NEW ENTITY IDENTIFIED: ID-{track_id} (CLASS: {label.upper()}) at {timestamp_log}s"
-                            msg2 = f"[TELEMETRY] LIVE TRAFFIC COUNT: {len(counted_ids)}"
+                            msg2 = f"[TELEMETRY] TOTAL {label.upper()}S: {type_breakdown[label]}"
                             add_log(video_id, msg1)
                             add_log(video_id, msg2)
                             print(msg1)
