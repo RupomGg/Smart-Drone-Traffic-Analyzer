@@ -42,7 +42,9 @@ export default function Home() {
   const [isUploading, setIsUploading] = useState<boolean>(false);
   const [filterType, setFilterType] = useState<string>('all');
   const [logs, setLogs] = useState<string[]>([]);
+  const [elapsedTime, setElapsedTime] = useState<number>(0);
   const terminalRef = useRef<HTMLDivElement>(null);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
   
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -102,6 +104,13 @@ export default function Home() {
   const startPolling = (vId: string) => {
     setIsProcessing(true);
     setVideoId(vId);
+    setElapsedTime(0);
+    
+    // Start Timer
+    timerRef.current = setInterval(() => {
+      setElapsedTime(prev => prev + 1);
+    }, 1000);
+
     pollingRef.current = setInterval(async () => {
       try {
         const response = await fetch(`${API_URL}/status/${vId}`);
@@ -114,6 +123,7 @@ export default function Home() {
         }
         if (data.status === 'completed' && data.results) {
           if (pollingRef.current) clearInterval(pollingRef.current);
+          if (timerRef.current) clearInterval(timerRef.current);
           setIsProcessing(false);
           setResults(data.results);
           setProgress(100);
@@ -257,7 +267,11 @@ export default function Home() {
                       <Cpu className="w-6 h-6 text-brand-red animate-pulse" />
                       <div>
                         <p className="text-sm font-black text-white">Neural Processing Unit</p>
-                        <p className="text-[10px] text-brand-red uppercase tracking-widest font-black">Active Stream</p>
+                        <div className="flex items-center gap-2">
+                          <p className="text-[10px] text-brand-red uppercase tracking-widest font-black">Active Stream</p>
+                          <span className="w-1 h-1 rounded-full bg-slate-700"></span>
+                          <p className="text-[10px] text-slate-400 font-mono">ET: {Math.floor(elapsedTime / 60)}:{(elapsedTime % 60).toString().padStart(2, '0')}</p>
+                        </div>
                       </div>
                     </div>
                     <div className="text-xl font-black text-white">{progress}%</div>
@@ -282,7 +296,8 @@ export default function Home() {
 
                       <div 
                         ref={terminalRef}
-                        className="p-8 h-[380px] overflow-y-auto font-mono text-[11px] space-y-2 scrollbar-none"
+                        className="p-8 h-[380px] overflow-y-auto font-mono text-[11px] space-y-2 scrollbar-none style-scrollbar-hide"
+                        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
                       >
                         {logs.map((log, i) => (
                           <div key={i} className="flex gap-4 animate-in fade-in slide-in-from-left-2 duration-300">
