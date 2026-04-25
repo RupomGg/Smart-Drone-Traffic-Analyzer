@@ -188,7 +188,7 @@ export default function Home() {
               
               <div className="grid grid-cols-3 gap-6">
                 {[
-                  { icon: Cpu, label: "Neural Engine", sub: "YOLOv8m" },
+                  { icon: Cpu, label: "Neural Engine", sub: "YOLOv11m" },
                   { icon: ShieldCheck, label: "Persistence", sub: "ByteTrack" },
                   { icon: Activity, label: "Real-time", sub: "A100 GPU" }
                 ].map((item, i) => (

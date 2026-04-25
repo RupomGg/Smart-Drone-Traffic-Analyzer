@@ -20,7 +20,7 @@ except ImportError:
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 class TrafficAnalyzer:
-    def __init__(self, model_path="yolov8m.pt"): # Upgraded to Medium for much better class distinction
+    def __init__(self, model_path="yolo11m.pt"): # Upgraded to v11 Medium for state-of-the-art accuracy/speed
         self.model = YOLO(model_path)
         self.model.to(DEVICE)
         self.vehicle_classes = [2, 3, 5, 6, 7] # car, motorcycle, bus, train, truck
@@ -101,7 +101,7 @@ class TrafficAnalyzer:
         
         add_log(video_id, "[SYSTEM] INITIALIZING CV PIPELINE...")
         add_log(video_id, f"[GPU] DEVICE DETECTED: {DEVICE.upper()}")
-        add_log(video_id, "[ENGINE] LOADING YOLOV8M NEURAL WEIGHTS... DONE")
+        add_log(video_id, "[ENGINE] LOADING YOLO11M NEURAL WEIGHTS... DONE")
         add_log(video_id, "[TRACKER] BYTETRACK PERSISTENCE ACTIVE")
 
         print(f"--- [TrafficAnalyzer] Starting High-Precision Analysis: {video_id} ---")

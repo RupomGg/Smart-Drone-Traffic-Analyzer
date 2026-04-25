@@ -6,8 +6,8 @@ This document outlines the technical architecture, tracking methodology, and eng
 
 ## 1. Tracking methodology & logic
 
-### The Core: ByteTrack & YOLOv8m
-Instead of simple frame-by-frame detection, the system implements **Multi-Object Tracking (MOT)** using the **ByteTrack** algorithm integrated with a **YOLOv8m (Medium)** model.
+### The Core: ByteTrack & YOLO11m
+Instead of simple frame-by-frame detection, the system implements **Multi-Object Tracking (MOT)** using the **ByteTrack** algorithm integrated with a **YOLO11m (Medium)** model.
 
 *   **Why ByteTrack over DeepSORT?** 
     *   **Efficiency:** DeepSORT requires a separate Re-Identification (Re-ID) neural network for every detection to extract visual features, which creates a massive computational bottleneck. 
@@ -46,14 +46,14 @@ To make this production-ready, several assumptions were made:
 
 ---
 
-## 4. Why YOLOv8-Medium (m) over Nano (n)?
+## 4. Why YOLO11-Medium (m) over Nano (n)?
 
-A common architectural question is model selection. Here is the justification for choosing the **Medium** variant:
+A common architectural question is model selection. Here is the justification for choosing the **Medium** variant of the latest **v11** architecture:
 
 | Model Variant | Trade-off | Rationale for this Project |
 | :--- | :--- | :--- |
 | **Nano / Small** | Speed over Accuracy | Too many "identity switches" in drone views. A car might be misclassified as a truck for one frame, breaking the track. |
-| **Medium** | **Optimal Balance** | Provides significantly higher **mAP (Mean Average Precision)** for small objects while still maintaining ~30-50 FPS on modern GPUs. |
+| **Medium (v11)** | **State-of-the-Art** | YOLO11m provides higher **mAP (Mean Average Precision)** and faster inference than v8m while using fewer parameters. It is the optimal choice for small object detection in aerial footage. |
 | **Large / X-Large** | Accuracy over Speed | Too slow for real-time processing pipelines. The marginal gain in accuracy didn't justify the 3x increase in inference latency. |
 
 ---
@@ -62,7 +62,7 @@ A common architectural question is model selection. Here is the justification fo
 
 A significant engineering challenge was the computational demand of running YOLOv8m on a standard local CPU. To ensure a performant and scalable solution, I architected a hybrid cloud deployment:
 
-*   **Backend (Hugging Face + Docker):** I containerized the Python/FastAPI pipeline using **Docker** and deployed it to **Hugging Face Spaces**. By leveraging Hugging Face's **ZeroGPU (A100)** infrastructure, the system gains on-demand access to high-performance GPUs, allowing for near real-time inference that would be impossible on local hardware.
+*   **Backend (Hugging Face + Docker):** I containerized the Python/FastAPI pipeline using **Docker** and deployed it to **Hugging Face Spaces**. By leveraging Hugging Face's **ZeroGPU (A100)** infrastructure, the system gains on-demand access to high-performance GPUs, allowing for near real-time inference using the **YOLO11** architecture that would be impossible on local hardware.
 *   **Frontend (Vercel):** The Next.js dashboard is deployed on **Vercel**, taking advantage of their Global Edge Network for lightning-fast UI delivery and seamless CI/CD integration.
 *   **Cross-Platform Integration:** This architecture demonstrates the ability to manage cross-origin resource sharing (CORS), secure API communication between different cloud providers, and handle asynchronous status updates across distributed systems.
 
