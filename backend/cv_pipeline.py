@@ -5,7 +5,7 @@ import csv
 import torch
 import subprocess
 from ultralytics import YOLO
-from status_manager import update_status
+from status_manager import update_status, add_log
 
 # ---------------------------------------------------------------------------
 # Optional Hugging Face ZeroGPU support
@@ -98,6 +98,11 @@ class TrafficAnalyzer:
         tracking_data = [] # [frame, timestamp, id, type]
         start_time = time.time()
         frame_count = 0
+        
+        add_log(video_id, "[SYSTEM] INITIALIZING CV PIPELINE...")
+        add_log(video_id, f"[GPU] DEVICE DETECTED: {DEVICE.upper()}")
+        add_log(video_id, "[ENGINE] LOADING YOLOV8M NEURAL WEIGHTS... DONE")
+        add_log(video_id, "[TRACKER] BYTETRACK PERSISTENCE ACTIVE")
 
         print(f"--- [TrafficAnalyzer] Starting High-Precision Analysis: {video_id} ---")
 
@@ -151,7 +156,10 @@ class TrafficAnalyzer:
                         if (crossed_h or crossed_v) and track_id not in counted_ids:
                             counted_ids.add(track_id)
                             type_breakdown[label] = type_breakdown.get(label, 0) + 1
-                            tracking_data.append([frame_count, round(frame_count/props['fps'], 2), track_id, label])
+                            timestamp_log = round(frame_count/props['fps'], 2)
+                            tracking_data.append([frame_count, timestamp_log, track_id, label])
+                            add_log(video_id, f"[TRACKER] NEW ENTITY IDENTIFIED: ID-{track_id} (CLASS: {label.upper()}) at {timestamp_log}s")
+                            add_log(video_id, f"[TELEMETRY] LIVE TRAFFIC COUNT: {len(counted_ids)}")
 
                     prev_positions[track_id] = (cx, cy, x1, y1, x2, y2)
 
@@ -166,6 +174,7 @@ class TrafficAnalyzer:
             if frame_count % 10 == 0:
                 progress = int((frame_count / props['total_frames']) * 100) if props['total_frames'] > 0 else 0
                 update_status(video_id, "processing", progress=progress)
+                add_log(video_id, f"[PROCESS] ANALYSED FRAME {frame_count} | PROGRESS: {progress}%")
 
         cap.release()
         out.release()
