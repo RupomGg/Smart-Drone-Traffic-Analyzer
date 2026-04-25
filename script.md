@@ -72,9 +72,9 @@ A significant engineering challenge was the computational demand of running YOLO
 
 When presenting to a recruiter, focus on these three pillars:
 
-### A. Asynchronous CV Pipelines
-*   **The Challenge:** Computer Vision is computationally expensive and shouldn't block the web server.
-*   **My Solution:** I decoupled the processing logic. The FastAPI backend triggers the CV pipeline as a background task, while a `status_manager` provides real-time progress updates to the React frontend via polling/state management.
+### A. Asynchronous CV Pipelines & Real-time Telemetry
+*   **The Challenge:** Computer Vision is computationally expensive and shouldn't block the web server. Furthermore, users need visibility into what the "black box" is doing in real-time.
+*   **My Solution:** I decoupled the processing logic. The FastAPI backend triggers the CV pipeline as a background task. I implemented a **Thread-Safe Log Buffer** in the backend that broadcasts system events (GPU status, tracker initialization, vehicle detections) to the frontend via a polling API. This provides a "live telemetry stream" similar to a server terminal.
 
 ### B. Data Integrity & Reporting
 *   **The Challenge:** A video is just visual; recruiters want to see data handling.
@@ -83,3 +83,23 @@ When presenting to a recruiter, focus on these three pillars:
 ### C. Cloud Infrastructure & DevOps
 *   **The Challenge:** High-performance AI models require GPUs, which are expensive or unavailable locally.
 *   **My Solution:** I demonstrated **DevOps proficiency** by containerizing the application and orchestrating a multi-cloud deployment. I chose the best tool for each job: Hugging Face for specialized AI compute and Vercel for high-availability web hosting. This shows I can design cost-effective, scalable architectures tailored to specific resource constraints.
+
+---
+
+## 7. Frontend Maintainability: Modular Component Architecture
+
+To ensure the project is production-ready and maintainable, I refactored the frontend from a monolithic structure into a **Modular Component Architecture**.
+
+*   **Decoupled UI Logic:** I extracted core functional areas into dedicated components:
+    *   `Terminal.tsx`: Encapsulates the Mac-style command prompt and log streaming logic.
+    *   `Dashboard.tsx`: A Bento-style results view that manages complex data visualization (Recharts) and telemetry tables.
+    *   `Hero.tsx` & `Upload.tsx`: Manage the landing page state and file ingestion.
+*   **Maintainability:** This modular approach allows for isolated testing and updates. For example, upgrading the AI model's display logic only requires editing a single component rather than navigating a thousand-line file.
+
+## 8. UX Engineering: The "Neural Engine" Terminal
+
+I didn't just build a loading bar; I engineered an **Interactive Telemetry Terminal** to bridge the gap between backend AI and the user.
+
+*   **Mac-Style UX:** The terminal features window controls, a zsh-style prompt, and a blinking block cursor to provide a "developer-first" aesthetic.
+*   **Performance Monitoring:** I implemented a frontend timer that syncs with the backend processing state, giving users immediate feedback on the "Neural Processing Unit" efficiency.
+*   **Data Highlight Logic:** The terminal dynamically highlights different log types (e.g., Green for Engine, Crimson for Tracker, Yellow for Telemetry), allowing for instant visual scanning of the analysis progress.
