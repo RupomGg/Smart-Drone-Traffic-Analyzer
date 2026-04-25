@@ -7,7 +7,7 @@ interface TerminalProps {
   logs: string[];
   progress: number;
   elapsedTime: number;
-  terminalRef: RefObject<HTMLDivElement>;
+  terminalRef: RefObject<HTMLDivElement | null>;
 }
 
 export const Terminal = ({ logs, progress, elapsedTime, terminalRef }: TerminalProps) => (
