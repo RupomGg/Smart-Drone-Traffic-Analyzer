@@ -8,99 +8,77 @@ app_port: 7860
 pinned: false
 ---
 
+# 🛸 Smart Drone Traffic Analyzer (Neural Engine v11)
 
-# 🛸 Smart Drone Traffic Analyzer
+A professional-grade, full-stack AI application designed to transform raw drone footage into high-fidelity traffic analytics. This system utilizes a decoupled architecture, combining a **FastAPI** backend (accelerated by **A100 GPUs**) with a **Next.js** frontend for real-time telemetry and data visualization.
 
-A professional, decoupled web application designed to analyze road traffic from drone-perspective footage. Leveraging **YOLOv8** for real-time object detection and **ByteTrack** for persistent object tracking, this system provides accurate vehicle counts and detailed traffic flow reports.
+![Banner](/artifacts/media__1777134904575.png)
 
-## 🚀 Features
+## 🚀 Key Features
 
-- **Asynchronous Processing**: Background task management ensures the UI remains responsive during heavy CV computations.
-- **Precision Tracking**: Uses ByteTrack to maintain unique vehicle IDs, preventing double-counting during occlusions.
-- **Real-time Visualization**: Processed videos include bounding boxes, tracking IDs, and a virtual counting line.
-- **Comprehensive Reporting**: Generates downloadable CSV reports with vehicle type breakdowns and processing metrics.
-- **Premium UI**: Modern dark-mode dashboard built with Next.js and Tailwind CSS v4.
+- **State-of-the-Art Detection**: Powered by **YOLO11m** (Medium), optimized for small object detection in aerial footage.
+- **MOT Persistence**: Implements the **ByteTrack** algorithm to maintain unique vehicle IDs across frames, even through occlusions.
+- **Real-Time Telemetry Stream**: A bespoke, Mac-style terminal interface that broadcasts live backend events (GPU status, tracker initialization, and detection triggers).
+- **Bento Dashboard UX**: A high-density, single-page results view providing temporal intensity charts, classification breakdowns, and granular event logs.
+- **Dual-Line Tripwire Logic**: Robust counting system that uses bounding-box intersection (not just center points) to accurately track oversized vehicles like buses and trains.
+- **Hybrid Cloud Architecture**: Backend hosted on **Hugging Face ZeroGPU** (Docker) for specialized AI compute, with the frontend on **Vercel** for low-latency delivery.
 
-## 🛠️ Architecture
+## 🛠️ Architecture Breakdown
 
-The project follows a decoupled architecture for maximum scalability:
+### 1. Backend (FastAPI + AI Engine)
+*   **Asynchronous Pipeline**: Processing is decoupled from the request cycle using Python `BackgroundTasks`.
+*   **Status Management**: A thread-safe global manager tracks progress, results, and a live log buffer.
+*   **Video Engineering**: Integrated **FFmpeg** re-encoding pass (`libx264`) ensures all processed AI videos are streamable in modern browsers.
+*   **Hugging Face Integration**: Optimized for **ZeroGPU** using the `@spaces.GPU` decorator to access high-performance NVIDIA hardware on-demand.
 
-1.  **Backend (FastAPI)**:
-    *   Handles secure file uploads with sanitization.
-    *   Manages a CV pipeline using `ultralytics` (YOLOv8).
-    *   Exposes status and resource endpoints for the frontend.
-2.  **Frontend (Next.js)**:
-    *   React-based SPA with polling logic to track processing status.
-    *   Responsive dashboard with video playback and data export capabilities.
+### 2. Frontend (Next.js + Modular React)
+*   **Modular Component Architecture**: Refactored for maintainability using specialized components (`Terminal.tsx`, `Dashboard.tsx`, `Hero.tsx`).
+*   **Dynamic Polling**: Efficiently consumes backend status updates to drive the live progress bar, timer, and terminal stream.
+*   **Data Visualization**: Uses **Recharts** to generate temporal traffic intensity maps.
 
-## 🚦 Setup Instructions
+## 🚦 Local Setup Instructions
 
 ### Prerequisites
-- **Python 3.9+**
+- **Python 3.10+**
 - **Node.js 18+**
-- **FFmpeg**: Required for video re-encoding (H.264).
+- **FFmpeg**: Required for H.264 video re-encoding.
     *   *Windows*: `winget install ffmpeg`
     *   *Linux*: `sudo apt install ffmpeg`
-    *   *macOS*: `brew install ffmpeg`
 
 ### 1. Backend Setup
 ```bash
 cd backend
 python -m venv venv
-# Windows
-.\venv\Scripts\activate
-# Linux/macOS
-source venv/bin/activate
-
+# Activate venv (Windows: .\venv\Scripts\activate | Unix: source venv/bin/activate)
 pip install -r requirements.txt
 python main.py
 ```
-The backend will start at `http://localhost:8000`.
+*Note: On first run, the system will automatically download the `yolo11m.pt` weights.*
 
 ### 2. Frontend Setup
 ```bash
 cd frontend
 npm install
+# Create a .env.local file:
+# NEXT_PUBLIC_API_URL=http://localhost:8000
 npm run dev
 ```
-The frontend will be available at `http://localhost:3000`.
 
-## 🧠 Tracking Methodology
+## 🧠 Engineering Methodology
 
-### Object Detection & Persistence
-We utilize **YOLOv8 (yolov8n.pt)** for fast and accurate vehicle detection (cars, trucks, buses, motorcycles). To solve the "memory" problem where a vehicle might be lost behind a tree or sign, we integrate **ByteTrack**. This assigns a unique `track_id` to every object that persists across frames.
+### Handling Edge Cases: Double-Counting
+The system prevents multiple counts of the same vehicle using a three-tier safeguard:
+1.  **Unique Tracking IDs**: ByteTrack assigns a persistent ID to each detection.
+2.  **Registry Persistence**: The `counted_ids` set ensures that once an ID triggers a line crossing, it is globally flagged for the rest of the session.
+3.  **Boundary Logic**: The tripwire logic requires a clear state transition across the line coordinates, preventing "jitter" from triggering multiple events.
 
-### Performance Optimizations
-- **High-Precision Model**: Upgraded to **YOLOv8m** (Medium). While slightly heavier, it provides significantly better feature extraction for identifying large, complex vehicles like **trains** and **heavy trucks** which the smaller models often confuse for buses or cars.
-- **Inference Scaling**: Inference is performed at **960px** with a **0.15 confidence threshold**. This aggressive configuration ensures the system can "see" vehicles in the far distance that are only a few pixels wide.
-- **Asynchronous Re-encoding**: The system processes video in `mp4v` for speed, then performs a high-efficiency **H.264 pass with ffmpeg** using `+faststart` to ensure the final output is streamable in all modern browsers.
+### Tracking Logic: Box Intersection
+Standard "center-point" tracking is unreliable for slow-moving or long vehicles (trains/buses). Our logic monitors the **intersection of any bounding box edge** with the tripwire coordinate. This ensures that even if a vehicle occupies 50% of the screen, it is registered the exact moment it touches the counting line.
 
-### The Dual-Line Box-Intersection Logic
-To ensure 100% accurate counting even for oversized vehicles:
-1.  **Box-Line Intersection**: Instead of checking just the "center point" (which can be unreliable for very long objects like trains), the system now checks if **any edge** (Top, Bottom, Left, Right) of the vehicle's bounding box crosses our tripwires.
-2.  **Horizontal Main Line (70% Height)**: Monitors vertical traffic flow (Up/Down).
-3.  **Vertical Side Line (50% Width)**: Monitors horizontal traffic flow (Left/Right).
-3.  **Bi-directional Tracking**: The algorithm detects line-crossing events in **both directions** for both lines.
-4.  **Deduplication**: Uses a unique `track_id` registry to ensure a vehicle crossing multiple lines is only counted once for the entire session. This robustly handles vehicles turning at intersections or passing through corners of the frame.
-
-## 🏗️ Project Structure
-```
-├── backend/
-│   ├── cv_pipeline.py    # Core YOLO + ByteTrack logic
-│   ├── main.py           # FastAPI endpoints & streaming
-│   ├── status_manager.py # Thread-safe progress tracking
-│   └── requirements.txt
-├── frontend/
-│   ├── src/app/page.tsx  # Main Next.js dashboard
-│   └── ...
-└── packages.txt          # System dependencies for HF Spaces
-```
-
-## 📝 Assumptions & Constraints
-- **Camera Stability**: The system assumes the drone camera remains relatively stationary or stabilized. A static counting line relies on a fixed frame of reference.
-- **Video Format**: Currently strictly optimized for `.mp4` files to ensure browser compatibility.
-- **Model Limitations (Top-Down View)**: Standard YOLOv8 is trained on the COCO dataset (mostly eye-level). In drone footage, long rectangular objects like **trains** can occasionally be misclassified as **buses**. In a production environment, this would be solved by fine-tuning the model on an aerial-specific dataset (like VisDrone).
-- **Environment**: Performance varies based on CPU/GPU availability; the system uses `yolov8n` (nano) by default for compatibility with standard hardware.
+## 📝 Engineering Assumptions
+- **Stability**: Assumes drone footage is stabilized (gimbal-locked).
+- **Format**: Optimized specifically for `.mp4` containers to maintain web compatibility.
+- **Hardware**: For local CPU execution, the pipeline is configured to use standard `torch` CPU inference, but A100/GPU acceleration is highly recommended for real-time performance.
 
 ---
-Built with ❤️ for Smart City Infrastructure.
+Built by **RupomGg** | Empowering Smart City Infrastructure with Neural Intelligence.

@@ -20,7 +20,7 @@ except ImportError:
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 class TrafficAnalyzer:
-    def __init__(self, model_path="yolo11m.pt"): # Upgraded to v11 Medium for state-of-the-art accuracy/speed
+    def __init__(self, model_path="yolo11m.pt"): 
         self.model = YOLO(model_path)
         self.model.to(DEVICE)
         self.vehicle_classes = [2, 3, 5, 6, 7] # car, motorcycle, bus, train, truck
@@ -39,10 +39,8 @@ class TrafficAnalyzer:
         }
 
     def _reencode_h264(self, video_path):
-        """Re-encodes video to browser-compatible H.264 using ffmpeg."""
         h264_path = video_path.replace(".mp4", "_h264.mp4")
         try:
-            # Attempt to use static-ffmpeg if installed
             try:
                 import static_ffmpeg
                 static_ffmpeg.add_paths()
@@ -135,8 +133,7 @@ class TrafficAnalyzer:
                     cx, cy = int((x1 + x2) / 2), int((y1 + y2) / 2)
                     label = self.model.names[cls]
                     
-                    # Robust Tripwire Logic: Check if the bounding box intersects the line
-                    # This is better for large vehicles (trains/trucks) than just the center point
+
                     prev_pos = prev_positions.get(track_id)
                     if prev_pos is not None:
                         prev_cx, prev_cy, prev_x1, prev_y1, prev_x2, prev_y2 = prev_pos
